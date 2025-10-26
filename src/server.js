@@ -15,6 +15,10 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 // Routes
+// app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/courses', require('./routes/courseRoutes'));
 app.use('/api/gallery', require('./routes/galleryRoutes'));

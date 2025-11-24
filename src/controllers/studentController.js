@@ -1,34 +1,30 @@
+// server/src/controllers/studentController.js
 const Student = require('../models/Student');
 const bcrypt = require('bcryptjs');
 
-// 📘 Get all students
 exports.getStudents = async (req, res) => {
   try {
-    const students = await Student.find().sort({ createdAt: -1 });
-    res.status(200).json(students);
+    const students = await Student.find().sort({ createdAt: -1 }).lean();
+    return res.status(200).json({ success: true, data: students });
   } catch (err) {
     console.error('Error fetching students:', err);
-    res.status(500).json({ message: 'Failed to fetch students' });
+    return res.status(500).json({ success: false, message: 'Failed to fetch students' });
   }
 };
 
-// ➕ Add a new student
 exports.addStudent = async (req, res) => {
   try {
     const { rollNo, name, email, password, dob, course, semester, contact, address } = req.body;
 
-    // Basic validation
     if (!rollNo || !name || !email || !password) {
-      return res.status(400).json({ message: 'Please fill all required fields' });
+      return res.status(400).json({ success: false, message: 'Please fill all required fields' });
     }
 
-    // Check if email or rollNo already exists
     const existing = await Student.findOne({ $or: [{ email }, { rollNo }] });
     if (existing) {
-      return res.status(400).json({ message: 'Student with same email or roll number already exists' });
+      return res.status(400).json({ success: false, message: 'Student with same email or roll number already exists' });
     }
 
-    // Hash password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const student = new Student({
@@ -44,45 +40,41 @@ exports.addStudent = async (req, res) => {
     });
 
     await student.save();
-    res.status(201).json(student);
+    return res.status(201).json({ success: true, data: student });
   } catch (err) {
     console.error('Error adding student:', err);
-    res.status(500).json({ message: 'Server error while adding student' });
+    return res.status(500).json({ success: false, message: 'Server error while adding student' });
   }
 };
 
-// ✏️ Update student details
 exports.updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
     const updates = { ...req.body };
 
-    // If password is being updated, hash it
     if (updates.password) {
       updates.password = await bcrypt.hash(updates.password, 10);
     }
 
-    const updatedStudent = await Student.findByIdAndUpdate(id, updates, { new: true });
-    if (!updatedStudent) return res.status(404).json({ message: 'Student not found' });
+    const updatedStudent = await Student.findByIdAndUpdate(id, updates, { new: true }).lean();
+    if (!updatedStudent) return res.status(404).json({ success: false, message: 'Student not found' });
 
-    res.status(200).json(updatedStudent);
+    return res.status(200).json({ success: true, data: updatedStudent });
   } catch (err) {
     console.error('Error updating student:', err);
-    res.status(500).json({ message: 'Failed to update student' });
+    return res.status(500).json({ success: false, message: 'Failed to update student' });
   }
 };
 
-// 🗑️ Delete a student
 exports.deleteStudent = async (req, res) => {
   try {
     const { id } = req.params;
+    const deleted = await Student.findByIdAndDelete(id).lean();
+    if (!deleted) return res.status(404).json({ success: false, message: 'Student not found' });
 
-    const deleted = await Student.findByIdAndDelete(id);
-    if (!deleted) return res.status(404).json({ message: 'Student not found' });
-
-    res.status(200).json({ message: 'Student deleted successfully' });
+    return res.status(200).json({ success: true, message: 'Student deleted successfully' });
   } catch (err) {
     console.error('Error deleting student:', err);
-    res.status(500).json({ message: 'Failed to delete student' });
+    return res.status(500).json({ success: false, message: 'Failed to delete student' });
   }
 };

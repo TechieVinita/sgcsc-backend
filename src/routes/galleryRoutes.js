@@ -3,33 +3,63 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const verifyAdmin = require('../middleware/authMiddleware');
-const { addGallery, getGallery, deleteGallery } = require('../controllers/galleryController');
+const sanitize = (s = '') => s.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9.\-_]/g, '');
 
-// multer disk storage (uploads stored in src/uploads)
+const verifyAdmin = require('../middleware/authMiddleware'); // exported function
+const galleryController = require('../controllers/galleryController');
+
+const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
+
+/**
+ * Multer storage: save into src/uploads with sanitized filename
+ */
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../uploads'));
-  },
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => {
-    const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`;
-    cb(null, safeName);
-  },
+    const safe = sanitize(file.originalname || 'file');
+    cb(null, `${Date.now()}-${safe}`);
+  }
 });
 
-const fileFilter = (req, file, cb) => {
-  const allowed = /jpeg|jpg|png|gif|webp/;
-  const ext = path.extname(file.originalname).toLowerCase();
-  cb(null, allowed.test(ext));
-};
+const allowedExt = /\.(jpe?g|png|gif|webp|bmp)$/i;
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: (req, file, cb) => {
+    if (!file || !file.originalname) return cb(new Error('Invalid file'));
+    if (!allowedExt.test(file.originalname)) {
+      return cb(new Error('Only image files are allowed (jpg/png/gif/webp)'));
+    }
+    cb(null, true);
+  }
+});
 
-const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 }, fileFilter });
+// PUBLIC: list gallery
+router.get('/', async (req, res, next) => {
+  try {
+    // controller returns { success: true, data }
+    return galleryController.getGallery(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+});
 
-// Public: list gallery
-router.get('/', getGallery);
+// ADMIN: add image (multipart field 'image')
+router.post('/', verifyAdmin, upload.single('image'), async (req, res, next) => {
+  try {
+    return galleryController.addGallery(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+});
 
-// Admin: create (with image) and delete
-router.post('/', verifyAdmin, upload.single('image'), addGallery);
-router.delete('/:id', verifyAdmin, deleteGallery);
+// ADMIN: delete image
+router.delete('/:id', verifyAdmin, async (req, res, next) => {
+  try {
+    return galleryController.deleteGallery(req, res, next);
+  } catch (err) {
+    next(err);
+  }
+});
 
 module.exports = router;

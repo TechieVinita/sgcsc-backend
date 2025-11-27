@@ -8,7 +8,6 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const cors = require('cors');
 
 const connectDB = require('./config/db');
 
@@ -16,7 +15,7 @@ let errorHandler = null;
 try {
   errorHandler = require('./middleware/errorHandler'); // optional
 } catch (e) {
-  // no custom error handler present - we'll use fallback
+  // fallback handler will be used
 }
 
 /* -----------------------
@@ -25,7 +24,7 @@ try {
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// We keep these for logging/reference only – NOT for CORS logic anymore
+// only for logging / URLs, NOT for CORS logic
 const FRONTEND_URL = process.env.FRONTEND_URL || process.env.CLIENT_URL || '';
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || '';
 const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
@@ -53,14 +52,43 @@ if (NODE_ENV === 'development') {
 }
 
 /* -----------------------
-   CORS CONFIG  (VERY SIMPLE)
+   *** HARD-CODED CORS ***
    ----------------------- */
-// OPEN CORS: allow all origins. This is what you need to make Vercel work.
-// You are not using cookies, only Authorization header, so this is fine.
-app.use(cors());
+/**
+ * We don’t rely on the cors package anymore.
+ * This guarantees that EVERY response (including errors)
+ * carries CORS headers, and all OPTIONS preflights are answered.
+ */
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
 
-// Make sure preflight OPTIONS also gets CORS headers
-app.options('*', cors());
+  // reflect caller origin if present, otherwise *
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+  );
+  res.header(
+    'Access-Control-Allow-Methods',
+    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
+  );
+
+  // you’re using Authorization header, no cookies → credentials not needed
+  // res.header('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    // short-circuit preflight with 204 and CORS headers
+    return res.sendStatus(204);
+  }
+
+  next();
+});
 
 /* -----------------------
    Rate limiters
@@ -73,7 +101,6 @@ const generalLimiter = rateLimit({
 });
 app.use(generalLimiter);
 
-// Stricter limiter for auth login endpoint
 const authRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 8,
@@ -101,10 +128,9 @@ app.use('/uploads', express.static(uploadsPath));
    Routes
    ----------------------- */
 
-// Apply auth limiter to the actual admin login path
+// apply limiter to admin login
 app.use('/api/auth/admin-login', authRateLimiter);
 
-// Helper to mount routers if present (so server doesn't crash if a file is missing)
 const mountIfExists = (mountPath, relativeRequirePath) => {
   try {
     const router = require(relativeRequirePath);
@@ -142,7 +168,6 @@ app.use((req, res, next) => {
 if (typeof errorHandler === 'function') {
   app.use(errorHandler);
 } else {
-  // fallback error handler
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     console.error(err && err.stack ? err.stack : err);

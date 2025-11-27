@@ -25,11 +25,7 @@ try {
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-/**
- * FRONTEND URL(s)
- * - You still have FRONTEND_URL / ALLOWED_ORIGINS in env, but we no longer
- *   use them for CORS blocking, to avoid preflight 500 errors on Render.
- */
+// kept for reference, but NOT used for CORS any more
 const FRONTEND_URL = process.env.FRONTEND_URL || process.env.CLIENT_URL || '';
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || '';
 
@@ -50,6 +46,20 @@ connectDB();
 const app = express();
 
 /* -----------------------
+   CORS (central, very permissive)
+   ----------------------- */
+
+const corsOptions = {
+  origin: true,      // reflect the request Origin header
+  credentials: true, // allow credentials / auth headers
+};
+
+app.use(cors(corsOptions));
+
+// Ensure ALL OPTIONS preflight requests succeed and get CORS headers
+app.options('*', cors(corsOptions));
+
+/* -----------------------
    Core middlewares
    ----------------------- */
 app.use(helmet());
@@ -62,23 +72,6 @@ if (NODE_ENV === 'development') {
 }
 
 /* -----------------------
-   CORS config (simplified)
-   -----------------------
-   IMPORTANT: This is what fixes your Vercel login.
-   - We let cors reflect the Origin instead of manually checking.
-   - We explicitly respond to all OPTIONS preflight requests.
-*/
-app.use(
-  cors({
-    origin: true,       // reflect request origin
-    credentials: true,  // safe even if you don't use cookies yet
-  })
-);
-
-// Ensure all preflight requests succeed (no 500 on OPTIONS)
-app.options('*', cors());
-
-/* -----------------------
    Rate limiters
    ----------------------- */
 const generalLimiter = rateLimit({
@@ -89,12 +82,9 @@ const generalLimiter = rateLimit({
 });
 app.use(generalLimiter);
 
-// Stricter limiter for auth login endpoint
-const authRateLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 8,
-  message: { success: false, message: 'Too many login attempts, try again later.' },
-});
+// NOTE: authRateLimiter REMOVED from /api/auth/admin-login to avoid
+// any chance of preflight (OPTIONS) requests returning 500 from Render.
+// If you ever add it back, make sure to skip OPTIONS method.
 
 /* -----------------------
    Static uploads folder
@@ -116,10 +106,6 @@ app.use('/uploads', express.static(uploadsPath));
 /* -----------------------
    Routes
    ----------------------- */
-
-// Apply auth limiter to the actual admin login path
-// (your route is POST /api/auth/admin-login)
-app.use('/api/auth/admin-login', authRateLimiter);
 
 // Helper to mount routers if present (so server doesn't crash if a file is missing)
 const mountIfExists = (mountPath, relativeRequirePath) => {

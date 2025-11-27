@@ -7,7 +7,6 @@ const express = require('express');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const compression = require('compression');
-const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 const connectDB = require('./config/db');
@@ -25,14 +24,6 @@ try {
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// kept for reference, but NOT used for CORS any more
-const FRONTEND_URL = process.env.FRONTEND_URL || process.env.CLIENT_URL || '';
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || '';
-
-/**
- * Public server base URL (used when returning upload file URLs)
- * e.g. https://sgcsc-backend.onrender.com
- */
 const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
 
 /* -----------------------
@@ -46,45 +37,41 @@ connectDB();
 const app = express();
 
 /* -----------------------
-   CORS (central, very permissive)
+   CORS – make it *very* permissive
    ----------------------- */
 
 const corsOptions = {
-  origin: true,      // reflect the request Origin header
-  credentials: true, // allow credentials / auth headers
+  origin: true,        // reflect Origin header
+  credentials: true,   // allow Authorization header / cookies
 };
 
+// CORS MUST be first
 app.use(cors(corsOptions));
 
-// Ensure ALL OPTIONS preflight requests succeed and get CORS headers
+// Explicitly handle all OPTIONS preflights
 app.options('*', cors(corsOptions));
 
 /* -----------------------
-   Core middlewares
+   Basic middlewares
    ----------------------- */
-app.use(helmet());
-app.use(compression());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+
+// Log every request – useful in Render logs
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 if (NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-/* -----------------------
-   Rate limiters
-   ----------------------- */
-const generalLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use(generalLimiter);
+app.use(helmet());
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// NOTE: authRateLimiter REMOVED from /api/auth/admin-login to avoid
-// any chance of preflight (OPTIONS) requests returning 500 from Render.
-// If you ever add it back, make sure to skip OPTIONS method.
+// IMPORTANT: all rate limiters removed for now to avoid touching OPTIONS.
+// Once everything works, you can re-add them carefully (skipping OPTIONS).
 
 /* -----------------------
    Static uploads folder
@@ -104,10 +91,8 @@ try {
 app.use('/uploads', express.static(uploadsPath));
 
 /* -----------------------
-   Routes
+   Route mounting helper
    ----------------------- */
-
-// Helper to mount routers if present (so server doesn't crash if a file is missing)
 const mountIfExists = (mountPath, relativeRequirePath) => {
   try {
     const router = require(relativeRequirePath);
@@ -115,10 +100,14 @@ const mountIfExists = (mountPath, relativeRequirePath) => {
     console.log(`Mounted ${mountPath} -> ${relativeRequirePath}`);
   } catch (err) {
     console.warn(`Router not mounted (missing or error): ${relativeRequirePath}`);
+    console.warn(err && err.message ? err.message : err);
   }
 };
 
-// Route mounts
+/* -----------------------
+   Routes
+   ----------------------- */
+
 mountIfExists('/api/auth', './routes/authRoutes');
 mountIfExists('/api/courses', './routes/courseRoutes');
 mountIfExists('/api/gallery', './routes/galleryRoutes');
@@ -134,6 +123,7 @@ mountIfExists('/api/affiliations', './routes/affiliationsRoutes');
 app.get('/health', (req, res) =>
   res.json({ success: true, status: 'ok', node: NODE_ENV })
 );
+
 app.get('/', (req, res) => res.send('API is running...'));
 
 /* -----------------------
@@ -163,7 +153,9 @@ if (typeof errorHandler === 'function') {
    Start server & graceful shutdown
    ----------------------- */
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Server running on ${SERVER_URL} (port ${PORT}) - NODE_ENV=${NODE_ENV}`);
+  console.log(
+    `🚀 Server running on ${SERVER_URL} (port ${PORT}) - NODE_ENV=${NODE_ENV}`
+  );
 });
 
 const shutdown = () => {

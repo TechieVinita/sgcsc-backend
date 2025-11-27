@@ -8,40 +8,38 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 
 const connectDB = require('./config/db');
-
 let errorHandler = null;
 try {
-  errorHandler = require('./middleware/errorHandler'); // optional
+  errorHandler = require('./middleware/errorHandler');
 } catch (e) {
-  // fallback handler will be used
+  // optional custom handler – fallback defined below
 }
 
-/* -----------------------
-   Basic env / config
-   ----------------------- */
+/* --------------------------------------------------
+ * Basic env / config
+ * -------------------------------------------------- */
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// only for logging / URLs, NOT for CORS logic
 const FRONTEND_URL = process.env.FRONTEND_URL || process.env.CLIENT_URL || '';
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || '';
 const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
 
-/* -----------------------
-   Connect to DB
-   ----------------------- */
+/* --------------------------------------------------
+ * Connect to DB
+ * -------------------------------------------------- */
 connectDB();
 
-/* -----------------------
-   Create express app
-   ----------------------- */
+/* --------------------------------------------------
+ * Create express app
+ * -------------------------------------------------- */
 const app = express();
 
-/* -----------------------
-   Core middlewares
-   ----------------------- */
+/* --------------------------------------------------
+ * Core middlewares
+ * -------------------------------------------------- */
 app.use(helmet());
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
@@ -51,48 +49,20 @@ if (NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-/* -----------------------
-   *** HARD-CODED CORS ***
-   ----------------------- */
-/**
- * We don’t rely on the cors package anymore.
- * This guarantees that EVERY response (including errors)
- * carries CORS headers, and all OPTIONS preflights are answered.
- */
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
+/* --------------------------------------------------
+ * CORS  (open – token-based auth only)
+ * -------------------------------------------------- */
+app.use(
+  cors({
+    origin: true,          // Reflects request origin
+    credentials: false,    // We are not using cookies
+  })
+);
+app.options('*', cors());
 
-  // reflect caller origin if present, otherwise *
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Vary', 'Origin');
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-
-  res.header(
-    'Access-Control-Allow-Headers',
-    'Origin, X-Requested-With, Content-Type, Accept, Authorization'
-  );
-  res.header(
-    'Access-Control-Allow-Methods',
-    'GET,POST,PUT,PATCH,DELETE,OPTIONS'
-  );
-
-  // you’re using Authorization header, no cookies → credentials not needed
-  // res.header('Access-Control-Allow-Credentials', 'true');
-
-  if (req.method === 'OPTIONS') {
-    // short-circuit preflight with 204 and CORS headers
-    return res.sendStatus(204);
-  }
-
-  next();
-});
-
-/* -----------------------
-   Rate limiters
-   ----------------------- */
+/* --------------------------------------------------
+ * Rate limiters
+ * -------------------------------------------------- */
 const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 200,
@@ -101,15 +71,19 @@ const generalLimiter = rateLimit({
 });
 app.use(generalLimiter);
 
+// Stricter limiter for admin login
 const authRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 8,
-  message: { success: false, message: 'Too many login attempts, try again later.' },
+  message: {
+    success: false,
+    message: 'Too many login attempts, try again later.',
+  },
 });
 
-/* -----------------------
-   Static uploads folder
-   ----------------------- */
+/* --------------------------------------------------
+ * Static uploads folder
+ * -------------------------------------------------- */
 const uploadsPath = path.join(__dirname, 'uploads');
 try {
   if (!fs.existsSync(uploadsPath)) {
@@ -124,54 +98,75 @@ try {
 }
 app.use('/uploads', express.static(uploadsPath));
 
-/* -----------------------
-   Routes
-   ----------------------- */
+/* --------------------------------------------------
+ * Import routers (FAIL FAST if missing)
+ * -------------------------------------------------- */
+const authRoutes = require('./routes/authRoutes');
+const courseRoutes = require('./routes/courseRoutes');
+const galleryRoutes = require('./routes/galleryRoutes');
+const contactRoutes = require('./routes/contactRoutes');
+const studentRoutes = require('./routes/studentRoutes');
+const resultRoutes = require('./routes/resultRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+const affiliationsRoutes = require('./routes/affiliationsRoutes');
 
-// apply limiter to admin login
+/* --------------------------------------------------
+ * Mount routes
+ * -------------------------------------------------- */
+
+// Apply login rate limiter ONLY on admin login POST
 app.use('/api/auth/admin-login', authRateLimiter);
 
-const mountIfExists = (mountPath, relativeRequirePath) => {
-  try {
-    const router = require(relativeRequirePath);
-    app.use(mountPath, router);
-    console.log(`Mounted ${mountPath} -> ${relativeRequirePath}`);
-  } catch (err) {
-    console.warn(`Router not mounted (missing or error): ${relativeRequirePath}`);
-  }
-};
+// Auth
+app.use('/api/auth', authRoutes);
 
-mountIfExists('/api/auth', './routes/authRoutes');
-mountIfExists('/api/courses', './routes/courseRoutes');
-mountIfExists('/api/gallery', './routes/galleryRoutes');
-mountIfExists('/api/contact', './routes/contactRoutes');
-mountIfExists('/api/students', './routes/studentRoutes');
-mountIfExists('/api/results', './routes/resultRoutes');
-mountIfExists('/api/uploads', './routes/uploadRoutes');
-mountIfExists('/api/affiliations', './routes/affiliationsRoutes');
+// Core resources
+app.use('/api/courses', courseRoutes);
+app.use('/api/gallery', galleryRoutes);
+app.use('/api/contact', contactRoutes);
 
-/* -----------------------
-   Health + root routes
-   ----------------------- */
-app.get('/health', (req, res) =>
-  res.json({ success: true, status: 'ok', node: NODE_ENV })
-);
-app.get('/', (req, res) => res.send('API is running...'));
+// *** IMPORTANT: students router is mounted explicitly here ***
+app.use('/api/students', studentRoutes);
 
-/* -----------------------
-   404 and error handlers
-   ----------------------- */
+app.use('/api/results', resultRoutes);
+app.use('/api/uploads', uploadRoutes);
+app.use('/api/affiliations', affiliationsRoutes);
+
+/* --------------------------------------------------
+ * Health / root
+ * -------------------------------------------------- */
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'ok',
+    env: NODE_ENV,
+  });
+});
+
+app.get('/', (req, res) => {
+  res.send('API is running...');
+});
+
+/* --------------------------------------------------
+ * 404 handler
+ * -------------------------------------------------- */
 app.use((req, res, next) => {
+  if (NODE_ENV === 'development') {
+    console.warn(`404 on ${req.method} ${req.originalUrl}`);
+  }
   res.status(404).json({ success: false, message: 'Not Found' });
 });
 
+/* --------------------------------------------------
+ * Error handler
+ * -------------------------------------------------- */
 if (typeof errorHandler === 'function') {
   app.use(errorHandler);
 } else {
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     console.error(err && err.stack ? err.stack : err);
-    const status = (err && err.status) || 500;
+    const status = err && err.status ? err.status : 500;
     res.status(status).json({
       success: false,
       message: (err && err.message) || 'Server Error',
@@ -179,13 +174,23 @@ if (typeof errorHandler === 'function') {
   });
 }
 
-/* -----------------------
-   Start server & graceful shutdown
-   ----------------------- */
+/* --------------------------------------------------
+ * Start server & graceful shutdown
+ * -------------------------------------------------- */
 const server = app.listen(PORT, () => {
   console.log(
     `🚀 Server running on ${SERVER_URL} (port ${PORT}) - NODE_ENV=${NODE_ENV}`
   );
+  console.log(`Frontend URL (for reference): ${FRONTEND_URL || 'not set'}`);
+  console.log('Mounted routes:');
+  console.log('  /api/auth');
+  console.log('  /api/courses');
+  console.log('  /api/gallery');
+  console.log('  /api/contact');
+  console.log('  /api/students');
+  console.log('  /api/results');
+  console.log('  /api/uploads');
+  console.log('  /api/affiliations');
 });
 
 const shutdown = () => {

@@ -1,80 +1,171 @@
 // server/src/controllers/studentController.js
 const Student = require('../models/Student');
-const bcrypt = require('bcryptjs');
+const Course = require('../models/Course');
 
-exports.getStudents = async (req, res) => {
+// GET /api/students  (admin – full list)
+exports.getStudents = async (req, res, next) => {
   try {
-    const students = await Student.find().sort({ createdAt: -1 }).lean();
-    return res.status(200).json({ success: true, data: students });
+    const students = await Student.find({})
+      .populate('course', 'name')           // << get course name
+      .sort({ createdAt: -1 });
+
+    res.json(students);
   } catch (err) {
-    console.error('Error fetching students:', err);
-    return res.status(500).json({ success: false, message: 'Failed to fetch students' });
+    next(err);
   }
 };
 
-exports.addStudent = async (req, res) => {
+// POST /api/students  (admin – create)
+exports.addStudent = async (req, res, next) => {
   try {
-    const { rollNo, name, email, password, dob, course, semester, contact, address } = req.body;
-
-    if (!rollNo || !name || !email || !password) {
-      return res.status(400).json({ success: false, message: 'Please fill all required fields' });
-    }
-
-    const existing = await Student.findOne({ $or: [{ email }, { rollNo }] });
-    if (existing) {
-      return res.status(400).json({ success: false, message: 'Student with same email or roll number already exists' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const student = new Student({
+    const {
       rollNo,
       name,
       email,
-      password: hashedPassword,
-      dob,
-      course,
+      course,      // we send this from frontend
+      courseId,    // and this, just in case
       semester,
+      joinDate,
+      dob,
       contact,
       address,
-    });
+      isCertified,
+    } = req.body;
 
-    await student.save();
-    return res.status(201).json({ success: true, data: student });
-  } catch (err) {
-    console.error('Error adding student:', err);
-    return res.status(500).json({ success: false, message: 'Server error while adding student' });
-  }
-};
+    const courseRef = course || courseId;
 
-exports.updateStudent = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = { ...req.body };
-
-    if (updates.password) {
-      updates.password = await bcrypt.hash(updates.password, 10);
+    if (!rollNo || !name || !courseRef || !joinDate) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Please fill all required fields' });
     }
 
-    const updatedStudent = await Student.findByIdAndUpdate(id, updates, { new: true }).lean();
-    if (!updatedStudent) return res.status(404).json({ success: false, message: 'Student not found' });
+    // ensure course exists (optional but safer)
+    const courseDoc = await Course.findById(courseRef);
+    if (!courseDoc) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Selected course does not exist' });
+    }
 
-    return res.status(200).json({ success: true, data: updatedStudent });
+    const existing = await Student.findOne({ rollNo });
+    if (existing) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Roll No already exists' });
+    }
+
+    const student = await Student.create({
+      rollNo: String(rollNo).trim(),
+      name: String(name).trim(),
+      email: email || undefined,
+      course: courseDoc._id,
+      semester: semester || 1,
+      joinDate: joinDate || undefined,
+      dob: dob || undefined,
+      contact: contact || undefined,
+      address: address || undefined,
+      isCertified: !!isCertified,
+    });
+
+    await student.populate('course', 'name');
+
+    res.status(201).json(student);
   } catch (err) {
-    console.error('Error updating student:', err);
-    return res.status(500).json({ success: false, message: 'Failed to update student' });
+    next(err);
   }
 };
 
-exports.deleteStudent = async (req, res) => {
+// PUT /api/students/:id  (admin – update)
+exports.updateStudent = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const deleted = await Student.findByIdAndDelete(id).lean();
-    if (!deleted) return res.status(404).json({ success: false, message: 'Student not found' });
+    const {
+      rollNo,
+      name,
+      email,
+      course,
+      courseId,
+      semester,
+      joinDate,
+      dob,
+      contact,
+      address,
+      isCertified,
+    } = req.body;
 
-    return res.status(200).json({ success: true, message: 'Student deleted successfully' });
+    const courseRef = course || courseId || undefined;
+
+    const update = {
+      rollNo: rollNo !== undefined ? String(rollNo).trim() : undefined,
+      name: name !== undefined ? String(name).trim() : undefined,
+      email,
+      semester,
+      joinDate,
+      dob,
+      contact,
+      address,
+      isCertified: isCertified !== undefined ? !!isCertified : undefined,
+    };
+
+    if (courseRef) {
+      const courseDoc = await Course.findById(courseRef);
+      if (!courseDoc) {
+        return res
+          .status(400)
+          .json({ success: false, message: 'Selected course does not exist' });
+      }
+      update.course = courseDoc._id;
+    }
+
+    // drop undefined keys
+    Object.keys(update).forEach(
+      (k) => update[k] === undefined && delete update[k]
+    );
+
+    const student = await Student.findByIdAndUpdate(id, update, {
+      new: true,
+      runValidators: true,
+    }).populate('course', 'name');
+
+    if (!student) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Student not found' });
+    }
+
+    res.json(student);
   } catch (err) {
-    console.error('Error deleting student:', err);
-    return res.status(500).json({ success: false, message: 'Failed to delete student' });
+    next(err);
+  }
+};
+
+// PUBLIC: GET /api/students/recent-home
+exports.getRecentStudentsForHome = async (req, res, next) => {
+  try {
+    const students = await Student.find({
+      joinDate: { $ne: null },
+    })
+      .populate('course', 'name')
+      .sort({ joinDate: -1 })
+      .limit(12);
+
+    res.json(students);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// PUBLIC: GET /api/students/certified-home
+exports.getCertifiedStudentsForHome = async (req, res, next) => {
+  try {
+    const students = await Student.find({ isCertified: true })
+      .populate('course', 'name')
+      .sort({ joinDate: -1 })
+      .limit(12);
+
+    res.json(students);
+  } catch (err) {
+    next(err);
   }
 };

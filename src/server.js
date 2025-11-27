@@ -7,15 +7,17 @@ const express = require('express');
 const morgan = require('morgan');
 const helmet = require('helmet');
 const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 const connectDB = require('./config/db');
 
+// optional error handler
 let errorHandler = null;
 try {
-  errorHandler = require('./middleware/errorHandler'); // optional
+  errorHandler = require('./middleware/errorHandler');
 } catch (e) {
-  // no custom error handler present - we'll use fallback
+  // ignore if not present
 }
 
 /* -----------------------
@@ -23,7 +25,6 @@ try {
    ----------------------- */
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
-
 const SERVER_URL = process.env.SERVER_URL || `http://localhost:${PORT}`;
 
 /* -----------------------
@@ -37,41 +38,54 @@ connectDB();
 const app = express();
 
 /* -----------------------
-   CORS – make it *very* permissive
+   Core middlewares
    ----------------------- */
 
-const corsOptions = {
-  origin: true,        // reflect Origin header
-  credentials: true,   // allow Authorization header / cookies
-};
+// NOTE: CORS MUST COME BEFORE ANY ROUTES.
+// Super-permissive CORS: allow all origins, no custom origin() function.
+app.use(
+  cors({
+    origin: true,        // reflect the incoming Origin header
+    credentials: false,  // you are not using cookies; keep this false
+  })
+);
+// Ensure all OPTIONS preflight requests succeed
+app.options('*', cors());
 
-// CORS MUST be first
-app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Explicitly handle all OPTIONS preflights
-app.options('*', cors(corsOptions));
+// Helmet AFTER CORS (and with relaxed cross-origin policy)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+  })
+);
 
-/* -----------------------
-   Basic middlewares
-   ----------------------- */
-
-// Log every request – useful in Render logs
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
-  next();
-});
+app.use(compression());
 
 if (NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-app.use(helmet());
-app.use(compression());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+/* -----------------------
+   Rate limiters
+   ----------------------- */
+const generalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(generalLimiter);
 
-// IMPORTANT: all rate limiters removed for now to avoid touching OPTIONS.
-// Once everything works, you can re-add them carefully (skipping OPTIONS).
+// Stricter limiter ONLY for the admin login endpoint
+const authRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 8,
+  message: { success: false, message: 'Too many login attempts, try again later.' },
+});
+app.use('/api/auth/admin-login', authRateLimiter);
 
 /* -----------------------
    Static uploads folder
@@ -83,16 +97,14 @@ try {
     console.warn('Created uploads folder at', uploadsPath);
   }
 } catch (err) {
-  console.error(
-    'Could not ensure uploads folder:',
-    err && err.message ? err.message : err
-  );
+  console.error('Could not ensure uploads folder:', err?.message || err);
 }
 app.use('/uploads', express.static(uploadsPath));
 
 /* -----------------------
-   Route mounting helper
+   Routes
    ----------------------- */
+
 const mountIfExists = (mountPath, relativeRequirePath) => {
   try {
     const router = require(relativeRequirePath);
@@ -100,13 +112,8 @@ const mountIfExists = (mountPath, relativeRequirePath) => {
     console.log(`Mounted ${mountPath} -> ${relativeRequirePath}`);
   } catch (err) {
     console.warn(`Router not mounted (missing or error): ${relativeRequirePath}`);
-    console.warn(err && err.message ? err.message : err);
   }
 };
-
-/* -----------------------
-   Routes
-   ----------------------- */
 
 mountIfExists('/api/auth', './routes/authRoutes');
 mountIfExists('/api/courses', './routes/courseRoutes');
@@ -123,17 +130,15 @@ mountIfExists('/api/affiliations', './routes/affiliationsRoutes');
 app.get('/health', (req, res) =>
   res.json({ success: true, status: 'ok', node: NODE_ENV })
 );
-
 app.get('/', (req, res) => res.send('API is running...'));
 
 /* -----------------------
    404 and error handlers
    ----------------------- */
-app.use((req, res, next) => {
+app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Not Found' });
 });
 
-// central error handler (custom or fallback)
 if (typeof errorHandler === 'function') {
   app.use(errorHandler);
 } else {
@@ -141,7 +146,7 @@ if (typeof errorHandler === 'function') {
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     console.error(err && err.stack ? err.stack : err);
-    const status = (err && err.status) || 500;
+    const status = err && err.status ? err.status : 500;
     res.status(status).json({
       success: false,
       message: (err && err.message) || 'Server Error',
@@ -153,9 +158,7 @@ if (typeof errorHandler === 'function') {
    Start server & graceful shutdown
    ----------------------- */
 const server = app.listen(PORT, () => {
-  console.log(
-    `🚀 Server running on ${SERVER_URL} (port ${PORT}) - NODE_ENV=${NODE_ENV}`
-  );
+  console.log(`🚀 Server running on ${SERVER_URL} (port ${PORT}) - NODE_ENV=${NODE_ENV}`);
 });
 
 const shutdown = () => {

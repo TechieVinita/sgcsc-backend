@@ -1,53 +1,62 @@
 // server/src/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
-const AdminUser = require('../models/AdminUser');
+const AdminUser = (() => {
+  try {
+    return require('../models/AdminUser');
+  } catch (e) {
+    // model might not exist in some setups — middleware will fallback to payload-only behavior
+    return null;
+  }
+})();
+
+const JWT_SECRET = process.env.JWT_SECRET || process.env.SECRET || 'change_this_secret';
 
 /**
- * verifyAdmin middleware: checks Authorization Bearer token, verifies JWT,
- * loads admin user and attaches `req.user` (without password).
- *
- * Export style: module.exports = verifyAdmin
- * Additionally we attach helper factories:
- *  - verifyAdmin.authorizeRole(...)
- *  - verifyAdmin.authorizePermission(...)
- *
- * This supports both:
- *  const verifyAdmin = require('../middleware/authMiddleware');
- *  router.post('/', verifyAdmin, ...)
- *
- * and also:
- *  const { authorizeRole } = require('../middleware/authMiddleware');
+ * verifyAdmin middleware
+ * - Expects Authorization: Bearer <token>
+ * - Verifies JWT, loads AdminUser (if model exists) and attaches req.user (without password)
  */
 async function verifyAdmin(req, res, next) {
   try {
-    const auth = req.header('Authorization') || '';
-    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : null;
+    const authHeader = req.headers.authorization || req.headers.Authorization || '';
+    const token = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+      ? authHeader.split(' ')[1]
+      : null;
 
     if (!token) {
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
-    // verify token (throws on invalid)
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded?.id) {
-      return res.status(401).json({ success: false, message: 'Invalid token payload' });
+    let payload;
+    try {
+      payload = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      // clear, specific responses for common JWT errors
+      if (err.name === 'TokenExpiredError') {
+        return res.status(401).json({ success: false, message: 'Token expired' });
+      }
+      return res.status(401).json({ success: false, message: 'Invalid token' });
     }
 
-    const admin = await AdminUser.findById(decoded.id).select('-password');
-    if (!admin) {
-      return res.status(401).json({ success: false, message: 'User not found' });
+    // payload should contain id (your signToken signs { id: admin._id, role: 'admin' })
+    const userId = payload.id || payload._id || payload.userId || null;
+
+    if (userId && AdminUser) {
+      const admin = await AdminUser.findById(userId).select('-password').lean();
+      if (!admin) {
+        return res.status(401).json({ success: false, message: 'User not found' });
+      }
+      req.user = admin;
+    } else {
+      // Fallback: attach token payload (no DB lookup)
+      // Useful for limited setups or when token contains full user info
+      req.user = payload;
     }
 
-    // attach user object for downstream handlers
-    req.user = admin;
     return next();
   } catch (err) {
-    console.error('authMiddleware.verifyAdmin error:', err?.message || err);
-    // distinguish token errors
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ success: false, message: 'Token expired' });
-    }
-    return res.status(401).json({ success: false, message: 'Invalid token' });
+    console.error('authMiddleware.verifyAdmin error:', err && err.stack ? err.stack : err);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 }
 
@@ -55,30 +64,27 @@ async function verifyAdmin(req, res, next) {
  * Role-based authorization factory
  * Usage: router.post('/x', verifyAdmin, verifyAdmin.authorizeRole('superadmin','admin'), handler)
  */
-verifyAdmin.authorizeRole = (...allowedRoles) => {
-  return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ success: false, message: 'Not authenticated' });
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
-    }
-    return next();
-  };
+verifyAdmin.authorizeRole = (...allowedRoles) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ success: false, message: 'Not authenticated' });
+  const role = req.user.role;
+  if (!role || !allowedRoles.includes(role)) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+  return next();
 };
 
 /**
  * Permission-based authorization factory
  * Example: verifyAdmin.authorizePermission('results.create')
  */
-verifyAdmin.authorizePermission = (permission) => {
-  return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ success: false, message: 'Not authenticated' });
-    if (req.user.role === 'superadmin') return next();
-    if (Array.isArray(req.user.permissions) && req.user.permissions.includes(permission)) return next();
-    return res.status(403).json({ success: false, message: 'Permission denied' });
-  };
+verifyAdmin.authorizePermission = (permission) => (req, res, next) => {
+  if (!req.user) return res.status(401).json({ success: false, message: 'Not authenticated' });
+  if (req.user.role === 'superadmin') return next();
+  if (Array.isArray(req.user.permissions) && req.user.permissions.includes(permission)) return next();
+  return res.status(403).json({ success: false, message: 'Permission denied' });
 };
 
-// Also provide named exports for convenience (CommonJS)
+// CommonJS exports (works with require)
 module.exports = verifyAdmin;
 module.exports.authorizeRole = verifyAdmin.authorizeRole;
 module.exports.authorizePermission = verifyAdmin.authorizePermission;

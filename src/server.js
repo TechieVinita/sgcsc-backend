@@ -11,6 +11,7 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 const connectDB = require('./config/db');
+
 let errorHandler = null;
 try {
   errorHandler = require('./middleware/errorHandler'); // optional
@@ -26,10 +27,11 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 
 /**
  * FRONTEND URL(s)
- * - Either set FRONTEND_URL (single) or ALLOWED_ORIGINS (comma-separated)
+ * - You still have FRONTEND_URL / ALLOWED_ORIGINS in env, but we no longer
+ *   use them for CORS blocking, to avoid preflight 500 errors on Render.
  */
 const FRONTEND_URL = process.env.FRONTEND_URL || process.env.CLIENT_URL || '';
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || ''; // comma-separated
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS || '';
 
 /**
  * Public server base URL (used when returning upload file URLs)
@@ -48,46 +50,33 @@ connectDB();
 const app = express();
 
 /* -----------------------
-   Middlewares
+   Core middlewares
    ----------------------- */
 app.use(helmet());
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-
 if (NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
 /* -----------------------
-   CORS config
-   ----------------------- */
-let allowedOrigins = [];
-if (ALLOWED_ORIGINS) {
-  allowedOrigins = ALLOWED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean);
-} else if (FRONTEND_URL) {
-  allowedOrigins = [FRONTEND_URL];
-}
+   CORS config (simplified)
+   -----------------------
+   IMPORTANT: This is what fixes your Vercel login.
+   - We let cors reflect the Origin instead of manually checking.
+   - We explicitly respond to all OPTIONS preflight requests.
+*/
+app.use(
+  cors({
+    origin: true,       // reflect request origin
+    credentials: true,  // safe even if you don't use cookies yet
+  })
+);
 
-if (NODE_ENV === 'production' && allowedOrigins.length > 0) {
-  app.use(cors({
-    origin: function(origin, callback) {
-      // allow requests with no origin (curl, server-to-server)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-        return callback(new Error(msg), false);
-      }
-      return callback(null, true);
-    },
-    credentials: true,
-    optionsSuccessStatus: 200
-  }));
-} else {
-  // development: permissive
-  app.use(cors());
-}
+// Ensure all preflight requests succeed (no 500 on OPTIONS)
+app.options('*', cors());
 
 /* -----------------------
    Rate limiters
@@ -96,14 +85,15 @@ const generalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 200,
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
 });
 app.use(generalLimiter);
 
+// Stricter limiter for auth login endpoint
 const authRateLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
+  windowMs: 60 * 1000,
   max: 8,
-  message: { success: false, message: 'Too many login attempts, try again later.' }
+  message: { success: false, message: 'Too many login attempts, try again later.' },
 });
 
 /* -----------------------
@@ -116,7 +106,10 @@ try {
     console.warn('Created uploads folder at', uploadsPath);
   }
 } catch (err) {
-  console.error('Could not ensure uploads folder:', err && err.message ? err.message : err);
+  console.error(
+    'Could not ensure uploads folder:',
+    err && err.message ? err.message : err
+  );
 }
 app.use('/uploads', express.static(uploadsPath));
 
@@ -124,21 +117,22 @@ app.use('/uploads', express.static(uploadsPath));
    Routes
    ----------------------- */
 
-// Apply auth limiter to the login path (route should exist in authRoutes)
-app.use('/api/auth/login', authRateLimiter);
+// Apply auth limiter to the actual admin login path
+// (your route is POST /api/auth/admin-login)
+app.use('/api/auth/admin-login', authRateLimiter);
 
-// Mount routers if present (guarded so server still starts when a route file is missing)
+// Helper to mount routers if present (so server doesn't crash if a file is missing)
 const mountIfExists = (mountPath, relativeRequirePath) => {
   try {
     const router = require(relativeRequirePath);
     app.use(mountPath, router);
     console.log(`Mounted ${mountPath} -> ${relativeRequirePath}`);
   } catch (err) {
-    console.warn(`Router not mounted (missing): ${relativeRequirePath}`);
+    console.warn(`Router not mounted (missing or error): ${relativeRequirePath}`);
   }
 };
 
-// Example route mounts (adjust/remove as your repo contains)
+// Route mounts
 mountIfExists('/api/auth', './routes/authRoutes');
 mountIfExists('/api/courses', './routes/courseRoutes');
 mountIfExists('/api/gallery', './routes/galleryRoutes');
@@ -148,12 +142,12 @@ mountIfExists('/api/results', './routes/resultRoutes');
 mountIfExists('/api/uploads', './routes/uploadRoutes');
 mountIfExists('/api/affiliations', './routes/affiliationsRoutes');
 
-
-
 /* -----------------------
    Health + root routes
    ----------------------- */
-app.get('/health', (req, res) => res.json({ success: true, status: 'ok', node: NODE_ENV }));
+app.get('/health', (req, res) =>
+  res.json({ success: true, status: 'ok', node: NODE_ENV })
+);
 app.get('/', (req, res) => res.send('API is running...'));
 
 /* -----------------------
@@ -171,8 +165,11 @@ if (typeof errorHandler === 'function') {
   // eslint-disable-next-line no-unused-vars
   app.use((err, req, res, next) => {
     console.error(err && err.stack ? err.stack : err);
-    const status = err && err.status ? err.status : 500;
-    res.status(status).json({ success: false, message: err && err.message ? err.message : 'Server Error' });
+    const status = (err && err.status) || 500;
+    res.status(status).json({
+      success: false,
+      message: (err && err.message) || 'Server Error',
+    });
   });
 }
 

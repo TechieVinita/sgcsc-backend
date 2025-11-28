@@ -1,3 +1,4 @@
+// server/src/routes/studentRoutes.js
 const express = require('express');
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.post('/', verifyAdmin, addStudent);
 router.put('/:id', verifyAdmin, updateStudent);
 router.delete('/:id', verifyAdmin, deleteStudent);
 
-// PUBLIC routes for the website home page
+// PUBLIC routes for website home page
 router.get('/recent-home', getRecentStudentsForHome);
 router.get('/certified-home', getCertifiedStudentsForHome);
 

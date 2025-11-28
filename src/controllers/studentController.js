@@ -2,28 +2,46 @@
 const Student = require('../models/Student');
 const Course = require('../models/Course');
 
-// GET /api/students  (admin – full list)
+// Helper to compute a display name for the course
+const getCourseDisplayName = (course) => {
+  if (!course) return '-';
+  return course.name || course.title || '-';
+};
+
+/* ============================================================
+   GET /api/students (admin – full list)
+   Ensures course name/title is always included
+============================================================ */
 exports.getStudents = async (req, res, next) => {
   try {
     const students = await Student.find({})
-      .populate('course', 'name')           // << get course name
-      .sort({ createdAt: -1 });
+      .populate({ path: 'course', select: 'name title' }) // pull both, whichever exists
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json(students);
+    // Ensure consistent frontend structure
+    students.forEach((s) => {
+      s.courseName = getCourseDisplayName(s.course);
+    });
+
+    return res.json({ success: true, data: students });
   } catch (err) {
+    console.error('getStudents error:', err);
     next(err);
   }
 };
 
-// POST /api/students  (admin – create)
+/* ============================================================
+   POST /api/students (admin – create)
+============================================================ */
 exports.addStudent = async (req, res, next) => {
   try {
     const {
       rollNo,
       name,
       email,
-      course,      // we send this from frontend
-      courseId,    // and this, just in case
+      course,
+      courseId,
       semester,
       joinDate,
       dob,
@@ -35,20 +53,22 @@ exports.addStudent = async (req, res, next) => {
     const courseRef = course || courseId;
 
     if (!rollNo || !name || !courseRef || !joinDate) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Please fill all required fields' });
+      return res.status(400).json({
+        success: false,
+        message:
+          'Please fill all required fields (Roll No, Name, Course, Join Date)',
+      });
     }
 
-    // ensure course exists (optional but safer)
     const courseDoc = await Course.findById(courseRef);
     if (!courseDoc) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Selected course does not exist' });
+      return res.status(400).json({
+        success: false,
+        message: 'Selected course does not exist',
+      });
     }
 
-    const existing = await Student.findOne({ rollNo });
+    const existing = await Student.findOne({ rollNo: String(rollNo).trim() });
     if (existing) {
       return res
         .status(400)
@@ -61,22 +81,28 @@ exports.addStudent = async (req, res, next) => {
       email: email || undefined,
       course: courseDoc._id,
       semester: semester || 1,
-      joinDate: joinDate || undefined,
+      joinDate,
       dob: dob || undefined,
       contact: contact || undefined,
       address: address || undefined,
       isCertified: !!isCertified,
     });
 
-    await student.populate('course', 'name');
+    // Populate course after creation
+    await student.populate({ path: 'course', select: 'name title' });
+    const json = student.toObject();
+    json.courseName = getCourseDisplayName(json.course);
 
-    res.status(201).json(student);
+    return res.status(201).json({ success: true, data: json });
   } catch (err) {
+    console.error('addStudent error:', err);
     next(err);
   }
 };
 
-// PUT /api/students/:id  (admin – update)
+/* ============================================================
+   PUT /api/students/:id (admin – update)
+============================================================ */
 exports.updateStudent = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -95,7 +121,6 @@ exports.updateStudent = async (req, res, next) => {
     } = req.body;
 
     const courseRef = course || courseId || undefined;
-
     const update = {
       rollNo: rollNo !== undefined ? String(rollNo).trim() : undefined,
       name: name !== undefined ? String(name).trim() : undefined,
@@ -118,7 +143,6 @@ exports.updateStudent = async (req, res, next) => {
       update.course = courseDoc._id;
     }
 
-    // drop undefined keys
     Object.keys(update).forEach(
       (k) => update[k] === undefined && delete update[k]
     );
@@ -126,7 +150,9 @@ exports.updateStudent = async (req, res, next) => {
     const student = await Student.findByIdAndUpdate(id, update, {
       new: true,
       runValidators: true,
-    }).populate('course', 'name');
+    })
+      .populate({ path: 'course', select: 'name title' })
+      .lean();
 
     if (!student) {
       return res
@@ -134,38 +160,73 @@ exports.updateStudent = async (req, res, next) => {
         .json({ success: false, message: 'Student not found' });
     }
 
-    res.json(student);
+    student.courseName = getCourseDisplayName(student.course);
+
+    return res.json({ success: true, data: student });
   } catch (err) {
+    console.error('updateStudent error:', err);
     next(err);
   }
 };
 
-// PUBLIC: GET /api/students/recent-home
+/* ============================================================
+   DELETE /api/students/:id (admin – delete)
+============================================================ */
+exports.deleteStudent = async (req, res, next) => {
+  try {
+    const student = await Student.findByIdAndDelete(req.params.id);
+    if (!student) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Student not found' });
+    }
+    return res.json({
+      success: true,
+      message: 'Student deleted successfully',
+    });
+  } catch (err) {
+    console.error('deleteStudent error:', err);
+    next(err);
+  }
+};
+
+/* ============================================================
+   PUBLIC endpoints for website home page
+============================================================ */
 exports.getRecentStudentsForHome = async (req, res, next) => {
   try {
-    const students = await Student.find({
-      joinDate: { $ne: null },
-    })
-      .populate('course', 'name')
+    const students = await Student.find({ joinDate: { $ne: null } })
+      .populate({ path: 'course', select: 'name title' })
       .sort({ joinDate: -1 })
-      .limit(12);
+      .limit(12)
+      .lean();
 
-    res.json(students);
+    students.forEach((s) => {
+      s.courseName = getCourseDisplayName(s.course);
+    });
+
+    res.json({ success: true, data: students });
   } catch (err) {
+    console.error('getRecentStudentsForHome error:', err);
     next(err);
   }
 };
 
-// PUBLIC: GET /api/students/certified-home
 exports.getCertifiedStudentsForHome = async (req, res, next) => {
   try {
     const students = await Student.find({ isCertified: true })
-      .populate('course', 'name')
+      .populate({ path: 'course', select: 'name title' })
       .sort({ joinDate: -1 })
-      .limit(12);
+      .limit(12)
+      .lean();
 
-    res.json(students);
+    students.forEach((s) => {
+      s.courseName = getCourseDisplayName(s.course);
+    });
+
+    res.json({ success: true, data: students });
   } catch (err) {
+    console.error('getCertifiedStudentsForHome error:', err);
     next(err);
   }
 };

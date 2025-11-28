@@ -11,6 +11,8 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 const connectDB = require('./config/db');
+
+// Optional custom error handler
 let errorHandler = null;
 try {
   errorHandler = require('./middleware/errorHandler');
@@ -38,6 +40,14 @@ connectDB();
 const app = express();
 
 /* --------------------------------------------------
+ * Debug request logger (before everything else)
+ * -------------------------------------------------- */
+app.use((req, res, next) => {
+  console.log(`[REQ] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+/* --------------------------------------------------
  * Core middlewares
  * -------------------------------------------------- */
 app.use(helmet());
@@ -50,15 +60,41 @@ if (NODE_ENV === 'development') {
 }
 
 /* --------------------------------------------------
- * CORS  (open – token-based auth only)
+ * CORS
  * -------------------------------------------------- */
+// Allow your deployed frontends + local dev
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3001',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  'https://sgcsc-site.vercel.app',
+  'https://sgcsc-admin.vercel.app',
+];
+
 app.use(
   cors({
-    origin: true,          // Reflects request origin
-    credentials: false,    // We are not using cookies
+    origin(origin, callback) {
+      // allow non-browser tools (Postman, curl) with no origin
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // In development, log unexpected origins to debug CORS issues
+      if (NODE_ENV === 'development') {
+        console.warn(`CORS blocked origin: ${origin}`);
+      }
+
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: false, // you're using token auth, not cookies
   })
 );
-app.options('*', cors());
+
+// IMPORTANT: do NOT use app.options('*', ...) on Express 5
+// cors() already handles OPTIONS when mounted globally
 
 /* --------------------------------------------------
  * Rate limiters
@@ -85,6 +121,7 @@ const authRateLimiter = rateLimit({
  * Static uploads folder
  * -------------------------------------------------- */
 const uploadsPath = path.join(__dirname, 'uploads');
+
 try {
   if (!fs.existsSync(uploadsPath)) {
     fs.mkdirSync(uploadsPath, { recursive: true });
@@ -96,10 +133,11 @@ try {
     err && err.message ? err.message : err
   );
 }
+
 app.use('/uploads', express.static(uploadsPath));
 
 /* --------------------------------------------------
- * Import routers (FAIL FAST if missing)
+ * Import routers
  * -------------------------------------------------- */
 const authRoutes = require('./routes/authRoutes');
 const courseRoutes = require('./routes/courseRoutes');
@@ -115,7 +153,10 @@ const affiliationsRoutes = require('./routes/affiliationsRoutes');
  * -------------------------------------------------- */
 
 // Apply login rate limiter ONLY on admin login POST
-app.use('/api/auth/admin-login', authRateLimiter);
+// (route itself is defined inside authRoutes under /api/auth)
+app.post('/api/auth/admin-login', authRateLimiter, (req, res, next) => {
+  next();
+});
 
 // Auth
 app.use('/api/auth', authRoutes);
@@ -124,10 +165,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
 app.use('/api/gallery', galleryRoutes);
 app.use('/api/contact', contactRoutes);
-
-// *** IMPORTANT: students router is mounted explicitly here ***
 app.use('/api/students', studentRoutes);
-
 app.use('/api/results', resultRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/affiliations', affiliationsRoutes);
@@ -150,7 +188,7 @@ app.get('/', (req, res) => {
 /* --------------------------------------------------
  * 404 handler
  * -------------------------------------------------- */
-app.use((req, res, next) => {
+app.use((req, res) => {
   if (NODE_ENV === 'development') {
     console.warn(`404 on ${req.method} ${req.originalUrl}`);
   }

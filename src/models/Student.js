@@ -1,32 +1,56 @@
+// server/src/models/Student.js
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const studentSchema = new mongoose.Schema(
   {
-    rollNo: { type: String, required: true, unique: true, trim: true },
+    // rollNo is now OPTIONAL and NOT unique
+    // you can remove this field entirely later if you want
+    // rollNo: { type: String, trim: true, default: null },
+
+    // --- Basic details (matching AddStudent form) ---
+    centerName: { type: String, trim: true }, // franchise / institute name
     name: { type: String, required: true, trim: true },
-    email: { type: String, lowercase: true, trim: true },
-
-    // optional password (if you ever give student login)
-    password: { type: String },
-
+    gender: { type: String, trim: true },
+    fatherName: { type: String, trim: true },
+    motherName: { type: String, trim: true },
     dob: { type: Date },
 
-    // relation to Course
-    course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
+    email: { type: String, lowercase: true, trim: true },
 
-    semester: { type: Number, default: 1 },
-
-    // NEW: when student joined this course
-    joinDate: { type: Date },
-
-    // keep feesPaid if you need it
-    feesPaid: { type: Boolean, default: false },
-
-    contact: { type: String, trim: true },
+    mobile: { type: String, trim: true }, // "+91..." from the form
+    state: { type: String, trim: true },
+    district: { type: String, trim: true },
     address: { type: String, trim: true },
 
-    // NEW: used for “Certified Students” list on public site
+    examPassed: { type: String, trim: true },
+    marksOrGrade: { type: String, trim: true },
+    board: { type: String, trim: true },
+    passingYear: { type: String, trim: true },
+
+    username: { type: String, trim: true },
+    password: { type: String }, // hashed below
+
+    // Course info
+    course: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Course',
+      default: null,
+    },
+    courseName: { type: String, trim: true },
+
+    // Photo: we store either a full URL or a /uploads/xxx filename
+    photo: { type: String, trim: true },
+
+    // Session
+    sessionStart: { type: Date },
+    sessionEnd: { type: Date },
+
+    // --- Legacy / optional fields kept for compatibility ---
+    semester: { type: Number, default: 1 },
+    joinDate: { type: Date },
+    feesPaid: { type: Boolean, default: false },
+    contact: { type: String, trim: true }, // older code may use this
     isCertified: { type: Boolean, default: false },
   },
   {
@@ -43,6 +67,7 @@ studentSchema.methods.toJSON = function () {
   return obj;
 };
 
+// hash password if set
 studentSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) return next();
   try {

@@ -1,18 +1,29 @@
-// Gallery.js
+// server/src/models/Gallery.js
 const mongoose = require('mongoose');
 
-const gallerySchema = new mongoose.Schema({
-  title: { type: String, trim: true, default: 'Untitled' },
-  url: { type: String, required: true }, // full URL or uploads/<filename>
-  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser', default: null },
-  altText: { type: String, default: '' }
-}, {
-  timestamps: true
-});
+const gallerySchema = new mongoose.Schema(
+  {
+    title: { type: String, trim: true, required: true },
+    // `image` can be either:
+    // - uploaded filename (stored in /uploads folder)
+    // - full external URL (https://...)
+    image: { type: String, trim: true, required: true },
+    // Simple string category: e.g. 'gallery', 'affiliation', 'event'
+    category: { type: String, trim: true, default: 'gallery' },
+    altText: { type: String, trim: true, default: '' },
+  },
+  {
+    timestamps: true,
+  }
+);
 
-// convenience virtual for thumbnail (you can change logic if you migrate to cloudinary)
-gallerySchema.virtual('thumbnail').get(function(){
-  return this.url; // if using cloud provider you'd return a resized URL
+gallerySchema.set('toJSON', {
+  transform: (doc, ret) => {
+    ret.id = ret._id;
+    delete ret._id;
+    delete ret.__v;
+    return ret;
+  },
 });
 
 module.exports = mongoose.model('Gallery', gallerySchema);

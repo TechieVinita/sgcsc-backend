@@ -1,23 +1,48 @@
-// Result.js
+// server/src/models/Result.js
 const mongoose = require('mongoose');
 
-const resultSchema = new mongoose.Schema({
-  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
-  course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
-  semester: { type: Number, required: true, min: 1 },
-  marks: { type: Number, required: true, min: 0, max: 100 },
-  exam: { type: String, default: '' }, // e.g., "Midterm 2025"
-  grade: { type: String, default: '' },
-  declared: { type: Boolean, default: false }, // show on public site only if declared
-  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'AdminUser' }
-}, {
-  timestamps: true
-});
+const resultSchema = new mongoose.Schema(
+  {
+    enrollmentNumber: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    rollNo: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    course: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    // optional extra fields you might want later
+    declared: {
+      type: Boolean,
+      default: false,
+    },
+    notes: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
 
-// helper: compute percentage or grade logic can be added here or in service
-resultSchema.methods.getPercentage = function() {
-  // If max marks ever needed, change model to store maxMarks; for now marks are percent-like
-  return this.marks;
-};
+// convenience for UI
+resultSchema.index({ enrollmentNumber: 1, rollNo: 1, course: 1 });
+
+resultSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    ret.id = ret._id;
+    delete ret.__v;
+    return ret;
+  },
+});
 
 module.exports = mongoose.model('Result', resultSchema);

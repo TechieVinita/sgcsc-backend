@@ -1,40 +1,43 @@
-// server/src/models/Member.js
+// src/models/Member.js
 const mongoose = require('mongoose');
 
 const memberSchema = new mongoose.Schema(
   {
+    // Required name
     name: {
       type: String,
-      required: [true, 'Member name is required'],
+      required: true,
       trim: true,
     },
-    role: {
+
+    // Designation / role, optional
+    designation: {
       type: String,
       trim: true,
       default: '',
     },
-    bio: {
+
+    // Old fields kept for compatibility with existing code / site
+    // (we simply don't use them on the admin UI anymore)
+    photoUrl: {
       type: String,
       trim: true,
       default: '',
     },
-    img: {
-      // can be full URL or filename stored in /uploads
-      type: String,
-      trim: true,
-      default: '',
-    },
+
     order: {
       type: Number,
       default: 0,
     },
+
+    // Whether to show on the public site
     isActive: {
       type: Boolean,
       default: true,
     },
   },
   {
-    timestamps: true,
+    timestamps: true, // createdAt, updatedAt
   }
 );
 

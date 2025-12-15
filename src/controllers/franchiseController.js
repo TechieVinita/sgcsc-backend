@@ -1,90 +1,81 @@
-// server/src/controllers/franchiseController.js
 const bcrypt = require('bcryptjs');
 const Franchise = require('../models/Franchise');
 const Student = require('../models/Student');
 
-function normalizeBool(v) {
-  if (v === true || v === false) return v;
-  if (v == null) return false;
-  const s = String(v).toLowerCase();
-  return s === 'true' || s === '1' || s === 'yes' || s === 'on';
-}
+/* =========================================================
+   HELPERS
+   ========================================================= */
 
-async function maybeHashPassword(raw) {
+const normalizeBool = (v) =>
+  v === true || ['true', '1', 'yes', 'on'].includes(String(v).toLowerCase());
+
+const hashPassword = async (raw) => {
   if (!raw) return undefined;
   const salt = await bcrypt.genSalt(10);
   return bcrypt.hash(raw, salt);
-}
+};
 
-function fileFrom(req, field) {
-  const files = req.files || {};
-  if (!files[field] || !files[field][0]) return undefined;
-  return files[field][0].filename;
-}
+const fileFrom = (req, field) =>
+  req.files?.[field]?.[0]?.filename || null;
 
-/* ---------- POST /api/franchises ---------- */
-exports.createFranchise = async (req, res, next) => {
+/* =========================================================
+   CREATE FRANCHISE
+   ========================================================= */
+exports.createFranchise = async (req, res) => {
   try {
     const {
       instituteId,
       ownerName,
       instituteName,
-      dob,
-      aadharNumber,
-      panNumber,
-      address,
-      state,
-      district,
-      operatorsCount,
-      classRooms,
-      totalComputers,
-      centerSpace,
-      whatsapp,
-      contact,
-      email,
-      ownerQualification,
-      hasReception,
-      hasStaffRoom,
-      hasWaterSupply,
-      hasToilet,
       username,
       password,
+      ...rest
     } = req.body;
 
     if (!instituteId || !ownerName || !instituteName) {
       return res.status(400).json({
         success: false,
-        message:
-          'instituteId, ownerName and instituteName are required fields.',
+        message: 'Institute ID, Owner Name and Institute Name are required',
       });
     }
 
-    const passwordHash = await maybeHashPassword(password);
+    if (!username || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Username and password are required',
+      });
+    }
+
+    const uname = username.trim().toLowerCase();
+
+    // 🔒 Final authority username check
+    const [studentExists, franchiseExists] = await Promise.all([
+      Student.findOne({ username: uname }),
+      Franchise.findOne({ username: uname }),
+    ]);
+
+    if (studentExists || franchiseExists) {
+      return res.status(409).json({
+        success: false,
+        message: 'Username already exists',
+      });
+    }
+
+    const passwordHash = await hashPassword(password);
 
     const franchise = await Franchise.create({
       instituteId: instituteId.trim(),
       ownerName: ownerName.trim(),
       instituteName: instituteName.trim(),
-      dob: dob || null,
-      aadharNumber,
-      panNumber,
-      address,
-      state,
-      district,
-      operatorsCount: operatorsCount ? Number(operatorsCount) : undefined,
-      classRooms: classRooms ? Number(classRooms) : undefined,
-      totalComputers: totalComputers ? Number(totalComputers) : undefined,
-      centerSpace,
-      whatsapp,
-      contact,
-      email,
-      ownerQualification,
-      hasReception: normalizeBool(hasReception),
-      hasStaffRoom: normalizeBool(hasStaffRoom),
-      hasWaterSupply: normalizeBool(hasWaterSupply),
-      hasToilet: normalizeBool(hasToilet),
-      username,
+      username: uname,
       passwordHash,
+
+      ...rest,
+
+      hasReception: normalizeBool(rest.hasReception),
+      hasStaffRoom: normalizeBool(rest.hasStaffRoom),
+      hasWaterSupply: normalizeBool(rest.hasWaterSupply),
+      hasToilet: normalizeBool(rest.hasToilet),
 
       aadharFront: fileFrom(req, 'aadharFront'),
       aadharBack: fileFrom(req, 'aadharBack'),
@@ -95,188 +86,191 @@ exports.createFranchise = async (req, res, next) => {
       certificateFile: fileFrom(req, 'certificateFile'),
     });
 
-    return res.status(201).json({ success: true, data: franchise });
+    return res.status(201).json({
+      success: true,
+      data: franchise,
+    });
   } catch (err) {
-    console.error('createFranchise error:', err);
-    return next(err);
-  }
-};
-
-/* ---------- GET /api/franchises ---------- */
-exports.getFranchises = async (req, res, next) => {
-  try {
-    const franchises = await Franchise.find({}).sort({ createdAt: -1 });
-    return res.json({ success: true, data: franchises });
-  } catch (err) {
-    console.error('getFranchises error:', err);
-    return next(err);
-  }
-};
-
-/* ---------- GET /api/franchises/:id ---------- */
-exports.getFranchise = async (req, res, next) => {
-  try {
-    const franchise = await Franchise.findById(req.params.id);
-    if (!franchise) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Franchise not found' });
-    }
-    return res.json({ success: true, data: franchise });
-  } catch (err) {
-    console.error('getFranchise error:', err);
-    return next(err);
-  }
-};
-
-/* ---------- PUT /api/franchises/:id ---------- */
-exports.updateFranchise = async (req, res, next) => {
-  try {
-    const {
-      instituteId,
-      ownerName,
-      instituteName,
-      dob,
-      aadharNumber,
-      panNumber,
-      address,
-      state,
-      district,
-      operatorsCount,
-      classRooms,
-      totalComputers,
-      centerSpace,
-      whatsapp,
-      contact,
-      email,
-      ownerQualification,
-      hasReception,
-      hasStaffRoom,
-      hasWaterSupply,
-      hasToilet,
-      username,
-      password,
-    } = req.body;
-
-    const update = {
-      instituteId,
-      ownerName,
-      instituteName,
-      dob: dob || null,
-      aadharNumber,
-      panNumber,
-      address,
-      state,
-      district,
-      operatorsCount: operatorsCount ? Number(operatorsCount) : undefined,
-      classRooms: classRooms ? Number(classRooms) : undefined,
-      totalComputers: totalComputers ? Number(totalComputers) : undefined,
-      centerSpace,
-      whatsapp,
-      contact,
-      email,
-      ownerQualification,
-      hasReception:
-        hasReception !== undefined ? normalizeBool(hasReception) : undefined,
-      hasStaffRoom:
-        hasStaffRoom !== undefined ? normalizeBool(hasStaffRoom) : undefined,
-      hasWaterSupply:
-        hasWaterSupply !== undefined
-          ? normalizeBool(hasWaterSupply)
-          : undefined,
-      hasToilet:
-        hasToilet !== undefined ? normalizeBool(hasToilet) : undefined,
-      username,
-    };
-
-    if (password) {
-      update.passwordHash = await maybeHashPassword(password);
-    }
-
-    const maybeFile = fileFrom;
-    const af = maybeFile(req, 'aadharFront');
-    const ab = maybeFile(req, 'aadharBack');
-    const pi = maybeFile(req, 'panImage');
-    const ip = maybeFile(req, 'institutePhoto');
-    const os = maybeFile(req, 'ownerSign');
-    const oi = maybeFile(req, 'ownerImage');
-    const cf = maybeFile(req, 'certificateFile');
-
-    if (af) update.aadharFront = af;
-    if (ab) update.aadharBack = ab;
-    if (pi) update.panImage = pi;
-    if (ip) update.institutePhoto = ip;
-    if (os) update.ownerSign = os;
-    if (oi) update.ownerImage = oi;
-    if (cf) update.certificateFile = cf;
-
-    Object.keys(update).forEach(
-      (k) => update[k] === undefined && delete update[k]
-    );
-
-    const franchise = await Franchise.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true, runValidators: true }
-    );
-
-    if (!franchise) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Franchise not found' });
-    }
-
-    return res.json({ success: true, data: franchise });
-  } catch (err) {
-    console.error('updateFranchise error:', err);
-    return next(err);
-  }
-};
-
-/* ---------- GET /api/franchises/check-username ---------- */
-exports.checkUsernameUnique = async (req, res, next) => {
-  try {
-    const username = (req.query.username || '').trim();
-    if (!username) {
-      return res.status(400).json({
+    // 🔥 Mongo duplicate key safety
+    if (err.code === 11000) {
+      return res.status(409).json({
         success: false,
-        message: 'username query parameter is required',
+        message: 'Duplicate value detected',
+        field: Object.keys(err.keyPattern || {}),
       });
     }
 
-    const uname = username.toLowerCase();
-
-    const [student, franchise] = await Promise.all([
-      // students may or may not have username; this will just return null if field doesn't exist
-      Student.findOne({
-        username: { $regex: `^${uname}$`, $options: 'i' },
-      }),
-      Franchise.findOne({
-        username: { $regex: `^${uname}$`, $options: 'i' },
-      }),
-    ]);
-
-    const exists = !!(student || franchise);
-
-    return res.json({ success: true, data: { exists } });
-  } catch (err) {
-    console.error('checkUsernameUnique error:', err);
-    return next(err);
+    console.error('createFranchise error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create franchise',
+    });
   }
 };
 
-/* ---------- DELETE /api/franchises/:id ---------- */
-exports.deleteFranchise = async (req, res, next) => {
+/* =========================================================
+   CHECK USERNAME UNIQUENESS
+   ========================================================= */
+exports.checkUsernameUnique = async (req, res) => {
   try {
-    const franchise = await Franchise.findByIdAndDelete(req.params.id);
-    if (!franchise) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Franchise not found' });
+    const username = String(req.query.username || '').trim().toLowerCase();
+
+    if (!username) {
+      return res.json({
+        success: true,
+        exists: false,
+      });
     }
-    return res.json({ success: true, message: 'Franchise deleted' });
+
+    const [student, franchise] = await Promise.all([
+      Student.findOne({ username }),
+      Franchise.findOne({ username }),
+    ]);
+
+    return res.json({
+      success: true,
+      exists: Boolean(student || franchise),
+    });
+  } catch (err) {
+    console.error('checkUsernameUnique error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Username check failed',
+    });
+  }
+};
+
+/* =========================================================
+   LIST FRANCHISES
+   ========================================================= */
+exports.getFranchises = async (_req, res) => {
+  try {
+    const list = await Franchise.find()
+      .select('-passwordHash')
+      .sort({ createdAt: -1 });
+
+    return res.json({
+      success: true,
+      data: list,
+    });
+  } catch (err) {
+    console.error('getFranchises error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load franchises',
+    });
+  }
+};
+
+/* =========================================================
+   GET SINGLE FRANCHISE
+   ========================================================= */
+exports.getFranchise = async (req, res) => {
+  try {
+    const franchise = await Franchise.findById(req.params.id).select(
+      '-passwordHash'
+    );
+
+    if (!franchise) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise not found',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: franchise,
+    });
+  } catch (err) {
+    console.error('getFranchise error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load franchise',
+    });
+  }
+};
+
+/* =========================================================
+   UPDATE FRANCHISE
+   ========================================================= */
+exports.updateFranchise = async (req, res) => {
+  try {
+    const updates = { ...req.body };
+
+    if (updates.password) {
+      updates.passwordHash = await hashPassword(updates.password);
+      delete updates.password;
+    }
+
+    updates.hasReception = normalizeBool(updates.hasReception);
+    updates.hasStaffRoom = normalizeBool(updates.hasStaffRoom);
+    updates.hasWaterSupply = normalizeBool(updates.hasWaterSupply);
+    updates.hasToilet = normalizeBool(updates.hasToilet);
+
+    // overwrite uploaded files only if provided
+    [
+      'aadharFront',
+      'aadharBack',
+      'panImage',
+      'institutePhoto',
+      'ownerSign',
+      'ownerImage',
+      'certificateFile',
+    ].forEach((f) => {
+      const file = fileFrom(req, f);
+      if (file) updates[f] = file;
+    });
+
+    const updated = await Franchise.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      { new: true }
+    ).select('-passwordHash');
+
+    if (!updated) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise not found',
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: updated,
+    });
+  } catch (err) {
+    console.error('updateFranchise error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update franchise',
+    });
+  }
+};
+
+/* =========================================================
+   DELETE FRANCHISE
+   ========================================================= */
+exports.deleteFranchise = async (req, res) => {
+  try {
+    const deleted = await Franchise.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise not found',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Franchise deleted successfully',
+    });
   } catch (err) {
     console.error('deleteFranchise error:', err);
-    return next(err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete franchise',
+    });
   }
 };

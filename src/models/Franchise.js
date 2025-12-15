@@ -1,26 +1,22 @@
-// server/src/models/Franchise.js
 const mongoose = require('mongoose');
 
 const franchiseSchema = new mongoose.Schema(
   {
-    // Basic IDs
     instituteId: {
       type: String,
       required: true,
       trim: true,
-      unique: true, // comment out if this creates trouble with existing data
+      unique: true,
+      index: true,
     },
 
-    // Owner / Institute
-    ownerName: { type: String, required: true, trim: true }, // Institute Owner Name
+    ownerName: { type: String, required: true, trim: true },
     instituteName: { type: String, required: true, trim: true },
     dob: Date,
 
-    // Identity numbers
     aadharNumber: { type: String, trim: true },
     panNumber: { type: String, trim: true },
 
-    // Uploaded files (filenames in /uploads)
     aadharFront: String,
     aadharBack: String,
     panImage: String,
@@ -29,29 +25,32 @@ const franchiseSchema = new mongoose.Schema(
     ownerImage: String,
     certificateFile: String,
 
-    // Infra / Address
-    address: String, // full institute address
+    address: String,
     state: String,
     district: String,
-    operatorsCount: Number, // Number of Computer Operators
+    operatorsCount: Number,
     classRooms: Number,
     totalComputers: Number,
-    centerSpace: String, // e.g. "500 sq ft"
+    centerSpace: String,
 
-    // Contact
     whatsapp: String,
     contact: String,
     email: String,
 
-    // Other details
     ownerQualification: String,
     hasReception: { type: Boolean, default: false },
     hasStaffRoom: { type: Boolean, default: false },
     hasWaterSupply: { type: Boolean, default: false },
     hasToilet: { type: Boolean, default: false },
 
-    // Login for franchise
-    username: { type: String, trim: true },
+    // 🔑 LOGIN
+    username: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      index: true,
+      sparse: true, // IMPORTANT: allows old docs without username
+    },
     passwordHash: String,
   },
   { timestamps: true }

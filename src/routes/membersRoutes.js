@@ -1,33 +1,18 @@
-// src/routes/membersRoutes.js
+// server/src/routes/membersRoutes.js
 const express = require("express");
-
-let Member;
-
-// Try common locations for the Member model
-try {
-  Member = require("../models/Model"); // what you said you use
-} catch (e1) {
-  try {
-    Member = require("../models/memberModel");
-  } catch (e2) {
-    console.error("[MEMBERS ROUTE] Failed to load Member model:", e1.message);
-    console.error("[MEMBERS ROUTE] Second attempt:", e2.message);
-    throw new Error(
-      "Member model not found. Make sure src/models/Model.js (or memberModel.js) exists and exports a Mongoose model."
-    );
-  }
-}
-
 const router = express.Router();
+const Member = require("../models/Member");
 
 /**
  * GET /api/members
- * List all members, sorted by order ASC then createdAt DESC
+ * List all members
  */
 router.get("/", async (_req, res, next) => {
   try {
-    const members = await Member.find().sort({ order: 1, createdAt: -1 });
-    // Plain array response – works fine with API.unwrap
+    const members = await Member.find().sort({
+      order: 1,
+      createdAt: -1,
+    });
     res.json(members);
   } catch (err) {
     next(err);
@@ -53,7 +38,6 @@ router.get("/:id", async (req, res, next) => {
 
 /**
  * POST /api/members
- * Create new member – compatible with AddMember.jsx payload
  */
 router.post("/", async (req, res, next) => {
   try {
@@ -65,15 +49,13 @@ router.post("/", async (req, res, next) => {
         .json({ success: false, message: "Name is required" });
     }
 
-    const member = new Member({
+    const member = await Member.create({
       name: name.trim(),
       designation: (designation || "").trim(),
       isActive: isActive !== false,
-      // photoUrl & order should come from schema defaults if any
     });
 
-    const saved = await member.save();
-    res.status(201).json(saved);
+    res.status(201).json(member);
   } catch (err) {
     next(err);
   }
@@ -81,7 +63,6 @@ router.post("/", async (req, res, next) => {
 
 /**
  * PUT /api/members/:id
- * Update existing member – compatible with Members.jsx edit form
  */
 router.put("/:id", async (req, res, next) => {
   try {
@@ -95,7 +76,7 @@ router.put("/:id", async (req, res, next) => {
 
     const member = await Member.findByIdAndUpdate(
       req.params.id,
-      { $set: update },
+      update,
       { new: true, runValidators: true }
     );
 
@@ -122,6 +103,7 @@ router.delete("/:id", async (req, res, next) => {
         .status(404)
         .json({ success: false, message: "Member not found" });
     }
+
     res.json({ success: true, message: "Member deleted" });
   } catch (err) {
     next(err);

@@ -10,34 +10,23 @@ function filePathFor(filename) {
   return path.join(UPLOADS_DIR, filename);
 }
 
-/**
- * POST /api/study-material
- * multipart/form-data:
- *  - file (optional)
- *  - name (required)
- *  - description
- *  - type: pdf|word|ppt|link|other
- *  - linkUrl (optional)
- */
+/* ================= CREATE ================= */
 exports.createMaterial = async (req, res) => {
   try {
-    const { name, description = '', type = 'other', linkUrl = '' } =
-      req.body || {};
+    const { name, description = '', type = 'other', linkUrl = '' } = req.body;
 
     if (!name || !name.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Name is required' });
+      return res.status(400).json({ success: false, message: 'Name is required' });
     }
 
     if (!req.file && !linkUrl) {
       return res.status(400).json({
         success: false,
-        message: 'Either a file upload or a link URL is required',
+        message: 'Either file upload or link URL is required',
       });
     }
 
-    const doc = new StudyMaterial({
+    const doc = await StudyMaterial.create({
       name: name.trim(),
       description: description.trim(),
       type,
@@ -45,183 +34,105 @@ exports.createMaterial = async (req, res) => {
       fileName: req.file ? req.file.filename : '',
       mimeType: req.file ? req.file.mimetype : '',
       sizeBytes: req.file ? req.file.size : 0,
-      uploadedBy: req.user?._id || null, // if verifyAdmin attaches user
+      uploadedBy: req.user?._id || null,
     });
 
-    await doc.save();
-
-    return res.status(201).json({ success: true, data: doc });
+    res.status(201).json({ success: true, data: doc });
   } catch (err) {
-    console.error('createMaterial error:', err);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Server error while creating material' });
+    console.error('createMaterial:', err);
+    res.status(500).json({ success: false, message: 'Create failed' });
   }
 };
 
-/**
- * GET /api/study-material
- * Admin list
- */
-exports.listMaterials = async (req, res) => {
+/* ================= LIST ================= */
+exports.listMaterials = async (_req, res) => {
   try {
     const items = await StudyMaterial.find({})
       .sort({ createdAt: -1 })
       .lean();
 
-    return res.json({ success: true, data: items });
+    res.json({ success: true, data: items });
   } catch (err) {
-    console.error('listMaterials error:', err);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Server error while listing materials' });
+    console.error('listMaterials:', err);
+    res.status(500).json({ success: false, message: 'Fetch failed' });
   }
 };
 
-/**
- * PUT /api/study-material/:id
- * Update metadata, and optionally replace file
- */
+/* ================= UPDATE (🔥 MISSING BEFORE) ================= */
 exports.updateMaterial = async (req, res) => {
   try {
-    const id = req.params.id;
-    if (!id) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Invalid id' });
+    const doc = await StudyMaterial.findById(req.params.id);
+    if (!doc) {
+      return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    const existing = await StudyMaterial.findById(id);
-    if (!existing) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Study material not found' });
-    }
+    const { name, description, type, linkUrl, isActive } = req.body;
 
-    const { name, description, type, linkUrl, isActive } = req.body || {};
+    if (name !== undefined) doc.name = name.trim();
+    if (description !== undefined) doc.description = description.trim();
+    if (type !== undefined) doc.type = type;
+    if (linkUrl !== undefined) doc.linkUrl = linkUrl.trim();
+    if (isActive !== undefined) doc.isActive = !!isActive;
 
-    if (name !== undefined && name.trim()) {
-      existing.name = name.trim();
-    }
-    if (description !== undefined) {
-      existing.description = String(description || '').trim();
-    }
-    if (type !== undefined) {
-      existing.type = type;
-    }
-    if (linkUrl !== undefined) {
-      existing.linkUrl = String(linkUrl || '').trim();
-    }
-    if (isActive !== undefined) {
-      existing.isActive = !!isActive;
-    }
-
-    // If new file uploaded, delete previous (if any) and update fields
     if (req.file) {
-      if (existing.fileName && !existing.fileName.startsWith('http')) {
-        const fp = filePathFor(existing.fileName);
+      if (doc.fileName) {
         try {
-          await fs.unlink(fp);
-        } catch (err) {
-          console.warn(
-            'updateMaterial: failed to delete old file:',
-            fp,
-            err?.message || err
-          );
-        }
+          await fs.unlink(filePathFor(doc.fileName));
+        } catch {}
       }
 
-      existing.fileName = req.file.filename;
-      existing.mimeType = req.file.mimetype;
-      existing.sizeBytes = req.file.size;
+      doc.fileName = req.file.filename;
+      doc.mimeType = req.file.mimetype;
+      doc.sizeBytes = req.file.size;
     }
 
-    await existing.save();
-
-    return res.json({ success: true, data: existing });
+    await doc.save();
+    res.json({ success: true, data: doc });
   } catch (err) {
-    console.error('updateMaterial error:', err);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Server error while updating material' });
+    console.error('updateMaterial:', err);
+    res.status(500).json({ success: false, message: 'Update failed' });
   }
 };
 
-/**
- * DELETE /api/study-material/:id
- */
+/* ================= DELETE ================= */
 exports.deleteMaterial = async (req, res) => {
   try {
-    const id = req.params.id;
-    if (!id) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Invalid id' });
-    }
-
-    const doc = await StudyMaterial.findById(id);
+    const doc = await StudyMaterial.findById(req.params.id);
     if (!doc) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Study material not found' });
+      return res.status(404).json({ success: false, message: 'Not found' });
     }
 
-    if (doc.fileName && !doc.fileName.startsWith('http')) {
-      const fp = filePathFor(doc.fileName);
+    if (doc.fileName) {
       try {
-        await fs.unlink(fp);
-      } catch (err) {
-        console.warn(
-          'deleteMaterial: failed to remove file:',
-          fp,
-          err?.message || err
-        );
-      }
+        await fs.unlink(filePathFor(doc.fileName));
+      } catch {}
     }
 
-    await StudyMaterial.findByIdAndDelete(id);
-
-    return res.json({ success: true, message: 'Deleted' });
+    await doc.deleteOne();
+    res.json({ success: true, message: 'Deleted' });
   } catch (err) {
-    console.error('deleteMaterial error:', err);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Server error while deleting material' });
+    console.error('deleteMaterial:', err);
+    res.status(500).json({ success: false, message: 'Delete failed' });
   }
 };
 
-/**
- * GET /api/study-material/:id/download
- * Streams the file as attachment
- */
+/* ================= DOWNLOAD (FIXED) ================= */
 exports.downloadMaterial = async (req, res) => {
   try {
-    const id = req.params.id;
-    if (!id) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Invalid id' });
+    const doc = await StudyMaterial.findById(req.params.id);
+    if (!doc || !doc.fileName) {
+      return res.status(404).json({ success: false, message: 'File not found' });
     }
 
-    const doc = await StudyMaterial.findById(id);
-    if (!doc) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Study material not found' });
-    }
+    const filePath = filePathFor(doc.fileName);
 
-    if (!doc.fileName) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'No uploaded file for this material' });
-    }
-
-    const fp = filePathFor(doc.fileName);
-    return res.download(fp, doc.name || 'material');
+    res.download(
+      filePath,
+      doc.fileName,
+      { headers: { 'Content-Type': doc.mimeType } }
+    );
   } catch (err) {
-    console.error('downloadMaterial error:', err);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Server error while downloading file' });
+    console.error('downloadMaterial:', err);
+    res.status(500).json({ success: false, message: 'Download failed' });
   }
 };

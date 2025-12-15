@@ -2,146 +2,84 @@
 const Subject = require('../models/Subject');
 const Course = require('../models/Course');
 
-// POST /api/subjects  (Admin) – create subject
-exports.createSubject = async (req, res, next) => {
-  try {
-    const { course, name, maxMarks, minMarks, isActive } = req.body;
+exports.createSubject = async (req, res) => {
+  const { course, name, maxMarks = 0, minMarks = 0 } = req.body;
 
-    if (!course) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Course is required' });
-    }
-
-    if (!name || !name.trim()) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Subject name is required' });
-    }
-
-    // Ensure referenced course exists (avoid orphan subjects)
-    const courseDoc = await Course.findById(course);
-    if (!courseDoc) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Invalid course ID' });
-    }
-
-    const subject = await Subject.create({
-      course,
-      name: name.trim(),
-      maxMarks: maxMarks != null ? Number(maxMarks) : 0,
-      minMarks: minMarks != null ? Number(minMarks) : 0,
-      isActive: isActive !== undefined ? !!isActive : true,
+  if (!course || !name?.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Course and subject name are required',
     });
-
-    return res.status(201).json({ success: true, data: subject });
-  } catch (err) {
-    console.error('createSubject error:', err);
-    return next(err);
   }
-};
 
-// GET /api/subjects  (Admin) – list subjects (optional ?course=... filter)
-exports.getSubjects = async (req, res, next) => {
-  try {
-    const { course } = req.query;
-    const filter = {};
-
-    if (course) {
-      filter.course = course;
-    }
-
-    const subjects = await Subject.find(filter)
-      .populate('course', 'name title duration')
-      .sort({ createdAt: -1 });
-
-    return res.json({ success: true, data: subjects });
-  } catch (err) {
-    console.error('getSubjects error:', err);
-    return next(err);
-  }
-};
-
-// GET /api/subjects/:id  (Admin) – single subject
-exports.getSubject = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const subject = await Subject.findById(id).populate(
-      'course',
-      'name title duration'
-    );
-
-    if (!subject) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Subject not found' });
-    }
-
-    return res.json({ success: true, data: subject });
-  } catch (err) {
-    console.error('getSubject error:', err);
-    return next(err);
-  }
-};
-
-// PUT /api/subjects/:id  (Admin) – update subject
-exports.updateSubject = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const { course, name, maxMarks, minMarks, isActive } = req.body;
-
-    const update = {};
-
-    if (course !== undefined) {
-      // validate the course if changed
-      const courseDoc = await Course.findById(course);
-      if (!courseDoc) {
-        return res
-          .status(400)
-          .json({ success: false, message: 'Invalid course ID' });
-      }
-      update.course = course;
-    }
-
-    if (name !== undefined) update.name = name.trim();
-    if (maxMarks !== undefined) update.maxMarks = Number(maxMarks);
-    if (minMarks !== undefined) update.minMarks = Number(minMarks);
-    if (isActive !== undefined) update.isActive = !!isActive;
-
-    const subject = await Subject.findByIdAndUpdate(id, update, {
-      new: true,
-      runValidators: true,
+  const courseDoc = await Course.findById(course);
+  if (!courseDoc) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid course',
     });
-
-    if (!subject) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Subject not found' });
-    }
-
-    return res.json({ success: true, data: subject });
-  } catch (err) {
-    console.error('updateSubject error:', err);
-    return next(err);
   }
+
+  const subject = await Subject.create({
+    course,
+    name: name.trim(),
+    maxMarks: Number(maxMarks),
+    minMarks: Number(minMarks),
+  });
+
+  res.status(201).json({ success: true, data: subject });
 };
 
-// DELETE /api/subjects/:id  (Admin) – delete subject
-exports.deleteSubject = async (req, res, next) => {
-  try {
-    const { id } = req.params;
+exports.getSubjects = async (_req, res) => {
+  const subjects = await Subject.find()
+    .populate('course', 'name title')
+    .sort({ createdAt: -1 });
 
-    const subject = await Subject.findByIdAndDelete(id);
-    if (!subject) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Subject not found' });
-    }
+  res.json({ success: true, data: subjects });
+};
 
-    return res.json({ success: true, message: 'Subject deleted' });
-  } catch (err) {
-    console.error('deleteSubject error:', err);
-    return next(err);
+exports.getSubject = async (req, res) => {
+  const subject = await Subject.findById(req.params.id).populate(
+    'course',
+    'name title'
+  );
+
+  if (!subject) {
+    return res.status(404).json({
+      success: false,
+      message: 'Subject not found',
+    });
   }
+
+  res.json({ success: true, data: subject });
+};
+
+exports.updateSubject = async (req, res) => {
+  const subject = await Subject.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    { new: true, runValidators: true }
+  );
+
+  if (!subject) {
+    return res.status(404).json({
+      success: false,
+      message: 'Subject not found',
+    });
+  }
+
+  res.json({ success: true, data: subject });
+};
+
+exports.deleteSubject = async (req, res) => {
+  const subject = await Subject.findByIdAndDelete(req.params.id);
+
+  if (!subject) {
+    return res.status(404).json({
+      success: false,
+      message: 'Subject not found',
+    });
+  }
+
+  res.json({ success: true, message: 'Subject deleted' });
 };

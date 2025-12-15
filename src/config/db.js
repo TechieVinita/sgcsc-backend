@@ -1,14 +1,20 @@
-const mongoose = require('mongoose');
+// server/src/config/db.js
+const mongoose = require("mongoose");
 
 const connectDB = async () => {
+  if (!process.env.MONGO_URI) {
+    console.error("❌ MONGO_URI is not defined");
+    process.exit(1);
+  }
+
   try {
-    const conn = await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true
-    });
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+    const conn = await mongoose.connect(process.env.MONGO_URI);
+
+    console.log("✅ MongoDB Connected");
+    console.log("   Host:", conn.connection.host);
+    console.log("   Database:", conn.connection.name);
   } catch (err) {
-    console.error(`❌ Database Connection Error: ${err.message}`);
+    console.error("❌ MongoDB connection failed:", err.message);
     process.exit(1);
   }
 };

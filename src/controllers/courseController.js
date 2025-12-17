@@ -62,11 +62,12 @@ exports.addCourse = async (req, res, next) => {
  */
 exports.getCourses = async (req, res, next) => {
   try {
-    const courses = await Course.find({}).sort({ createdAt: -1 });
-    return res.json({ success: true, data: courses });
+    const courses = await Course.find({ active: true })
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: courses });
   } catch (err) {
-    console.error('getCourses error:', err);
-    return next(err);
+    next(err);
   }
 };
 

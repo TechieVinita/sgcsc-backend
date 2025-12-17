@@ -18,7 +18,28 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 connectDB();
 
 /* ===================== Core Middleware ===================== */
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "http://localhost:5000",
+          "https:",
+        ],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+        connectSrc: ["'self'", "http://localhost:5000", "https:"],
+      },
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+
 app.use(compression());
 
 app.use(express.json({ limit: "10mb" }));
@@ -56,6 +77,9 @@ app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"))
 );
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 /* ===================== API Routes ===================== */
 app.use("/api/auth", require("./routes/authRoutes"));

@@ -80,6 +80,31 @@ exports.createStudent = async (req, res, next) => {
   }
 };
 
+/* ---------- GET /api/students/recent ---------- */
+exports.getRecentStudents = async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 6, 10);
+
+    const students = await Student.find({})
+      .sort({
+        sessionStart: -1,   // priority
+        createdAt: -1,      // fallback
+      })
+      .limit(limit)
+      .select('name photo courseName sessionStart createdAt')
+      .lean();
+
+    return res.json({
+      success: true,
+      data: students,
+    });
+  } catch (err) {
+    console.error('getRecentStudents error:', err);
+    return next(err);
+  }
+};
+
+
 /* ---------- GET /api/students ---------- */
 exports.getStudents = async (req, res, next) => {
   try {

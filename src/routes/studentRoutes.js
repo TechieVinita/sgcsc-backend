@@ -11,12 +11,16 @@ const {
   updateStudent,
   deleteStudent,
   getRecentStudents,
+  getCertifiedStudents,
 } = require('../controllers/studentController');
 
 const router = express.Router();
 
-/* ---------- PUBLIC ---------- */
-router.get('/recent', getRecentStudents);
+/* ---------- PUBLIC (STATIC FIRST) ---------- */
+router.get('/recent-home', getRecentStudents);
+router.get('/certified-home', getCertifiedStudents);
+
+/* ---------- GENERIC ---------- */
 router.get('/', getStudents);
 router.get('/:id', getStudent);
 

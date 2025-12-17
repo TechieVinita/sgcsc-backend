@@ -17,7 +17,7 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 /* ===================== DB ===================== */
 connectDB();
 
-/* ===================== Core Middleware ===================== */
+/* ===================== Security ===================== */
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -39,12 +39,14 @@ app.use(
   })
 );
 
-
+/* ===================== Performance ===================== */
 app.use(compression());
 
+/* ===================== Body Parsing ===================== */
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+/* ===================== Logger ===================== */
 if (NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
@@ -72,36 +74,33 @@ app.use(
   })
 );
 
-/* ===================== Static Files ===================== */
+/* ===================== STATIC FILES (IMPORTANT FIX) ===================== */
+/**
+ * Multer saves files into:
+ *   server/src/uploads
+ * So we MUST serve THAT directory
+ */
 app.use(
   "/uploads",
-  express.static(path.join(__dirname, "uploads"))
+  express.static(path.join(__dirname, "src", "uploads"))
 );
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-
-/* ===================== API Routes ===================== */
+/* ===================== API ROUTES ===================== */
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/members", require("./routes/membersRoutes"));
-
+app.use("/api/affiliations", require("./routes/affiliations"));
 app.use("/api/franchises", require("./routes/franchiseRoutes"));
 app.use("/api/students", require("./routes/studentRoutes"));
 app.use("/api/courses", require("./routes/courseRoutes"));
-
 app.use("/api/subjects", require("./routes/subjectRoutes"));
-
 app.use("/api/results", require("./routes/resultRoutes"));
 app.use("/api/gallery", require("./routes/galleryRoutes"));
-
 app.use("/api/admit-cards", require("./routes/admitCardRoutes"));
 app.use("/api/certificates", require("./routes/certificateRoutes"));
 app.use("/api/study-materials", require("./routes/studyMaterialRoutes"));
 app.use("/api/assignments", require("./routes/assignmentRoutes"));
 
-
-
-/* ===================== Health ===================== */
+/* ===================== Health Check ===================== */
 app.get("/health", (_req, res) => {
   res.json({
     success: true,
@@ -128,7 +127,7 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-/* ===================== Start ===================== */
+/* ===================== Start Server ===================== */
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📦 Environment: ${NODE_ENV}`);

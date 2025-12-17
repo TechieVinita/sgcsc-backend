@@ -18,6 +18,44 @@ const hashPassword = async (raw) => {
 const fileFrom = (req, field) =>
   req.files?.[field]?.[0]?.filename || null;
 
+
+
+exports.createFranchisePublic = async (req, res) => {
+  try {
+    const files = req.files || {};
+
+    const franchise = await Franchise.create({
+      ...req.body,
+
+      // FILES
+      aadharFront: files.aadharFront?.[0]?.filename,
+      aadharBack: files.aadharBack?.[0]?.filename,
+      panImage: files.panImage?.[0]?.filename,
+      institutePhoto: files.institutePhoto?.[0]?.filename,
+      ownerSign: files.ownerSign?.[0]?.filename,
+      ownerImage: files.ownerImage?.[0]?.filename,
+      certificateFile: files.certificateFile?.[0]?.filename,
+
+      // IMPORTANT: mark as pending / inactive
+      isApproved: false,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Franchise registration submitted successfully',
+      data: franchise,
+    });
+  } catch (err) {
+    console.error('public franchise create error:', err);
+    return res.status(400).json({
+      success: false,
+      message: err.message || 'Franchise registration failed',
+    });
+  }
+};
+
+
+
 /* =========================================================
    CREATE FRANCHISE
    ========================================================= */

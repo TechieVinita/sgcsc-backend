@@ -24,12 +24,24 @@ exports.listMembers = async (req, res, next) => {
       .sort({ order: 1, createdAt: -1 })
       .lean();
 
-    return res.json({ success: true, data: members });
+    const formatted = members.map(m => ({
+      id: m._id,
+      name: m.name,
+      role: m.designation,   // Home.jsx expects "role"
+      img: m.photoUrl || '', // Home.jsx expects "img"
+      order: m.order,
+      isActive: m.isActive,
+    }));
+
+    return res.json({ success: true, data: formatted });
+
   } catch (err) {
     console.error('listMembers error:', err);
     return next(err);
   }
 };
+
+
 
 // GET /api/members/:id
 exports.getMember = async (req, res, next) => {

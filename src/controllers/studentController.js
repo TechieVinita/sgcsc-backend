@@ -68,7 +68,7 @@ exports.createStudent = async (req, res, next) => {
       username: username || '',
       password: password || '', // hashed in pre-save hook
 
-      photo: req.file ? req.file.filename : undefined,
+      photo: `/uploads/${req.file.filename}`,
     });
 
     await student.save();
@@ -103,6 +103,39 @@ exports.getRecentStudents = async (req, res, next) => {
     return next(err);
   }
 };
+
+
+exports.getCertifiedStudents = async (req, res, next) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 6, 10);
+
+    const students = await Student.find({ isCertified: true })
+      .sort({ updatedAt: -1 })
+      .limit(limit)
+      .select('name photo courseName')
+      .lean();
+
+    res.json({ success: true, data: students });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getCertifiedStudents = async (req, res, next) => {
+  try {
+    const students = await Student.find({ isCertified: true })
+      .sort({ updatedAt: -1 })
+      .limit(6)
+      .select('name photo courseName')
+      .lean();
+
+    res.json({ success: true, data: students });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
 
 
 /* ---------- GET /api/students ---------- */

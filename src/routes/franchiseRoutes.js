@@ -4,8 +4,11 @@ const fs = require('fs');
 const multer = require('multer');
 
 const verifyAdmin = require('../middleware/authMiddleware');
+
+
 const {
   createFranchise,
+  createFranchisePublic,
   getFranchises,
   getFranchise,
   updateFranchise,
@@ -13,7 +16,18 @@ const {
   checkUsernameUnique,
 } = require('../controllers/franchiseController');
 
+
 const router = express.Router();
+
+/**
+ * 🌐 PUBLIC – Franchise Registration (no admin login)
+ */
+router.post(
+  '/register',
+  franchiseUploads,
+  createFranchisePublic
+);
+
 
 /* =========================================================
    UPLOADS SETUP
@@ -73,11 +87,20 @@ const franchiseUploads = upload.fields([
    Base: /api/franchises
    ========================================================= */
 
+
+   
 /**
  * 🔍 Username uniqueness check
  * IMPORTANT: must be BEFORE "/:id"
  */
 router.get('/check-username', checkUsernameUnique);
+
+router.post(
+  '/register',
+  franchiseUploads,
+  createFranchisePublic
+);
+
 
 /**
  * 📄 List all franchises (admin)

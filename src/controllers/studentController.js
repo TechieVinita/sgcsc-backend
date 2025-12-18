@@ -150,7 +150,7 @@ exports.getStudents = async (req, res, next) => {
 };
 
 /* ---------- GET /api/students/:id ---------- */
-// In studentController.js - getStudent function
+// In studentController.js - getStudent functio
 exports.getStudent = async (req, res, next) => {
   try {
     // Validate ObjectId format BEFORE querying

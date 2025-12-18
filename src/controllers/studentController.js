@@ -150,13 +150,20 @@ exports.getStudents = async (req, res, next) => {
 };
 
 /* ---------- GET /api/students/:id ---------- */
+// In studentController.js - getStudent function
 exports.getStudent = async (req, res, next) => {
   try {
+    // Validate ObjectId format BEFORE querying
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Invalid student ID format' 
+      });
+    }
+    
     const student = await Student.findById(req.params.id);
     if (!student) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Student not found' });
+      return res.status(404).json({ success: false, message: 'Student not found' });
     }
     return res.json({ success: true, data: student });
   } catch (err) {
@@ -164,6 +171,7 @@ exports.getStudent = async (req, res, next) => {
     return next(err);
   }
 };
+
 
 /* ---------- PUT /api/students/:id ---------- */
 exports.updateStudent = async (req, res, next) => {

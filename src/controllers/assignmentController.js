@@ -1,84 +1,81 @@
 // server/src/controllers/assignmentController.js
-const fs = require('fs/promises');
-const path = require('path');
-const Assignment = require('../models/Assignment');
-
-const ASSIGNMENTS_DIR = path.join(__dirname, '..', 'uploads', 'assignments');
-
-/**
- * Helper to build full file path for stored filename
- */
-function resolveFilePath(fileName) {
-  return path.join(ASSIGNMENTS_DIR, fileName);
-}
+const Assignment = require("../models/Assignment");
+const cloudinary = require("../config/cloudinary");
+const mongoose = require("mongoose");
 
 /**
  * POST /api/assignments
- * Multipart form-data: file (field "file"), description
+ * Multipart form-data:
+ *  - file (required)
+ *  - description (optional)
  */
 exports.createAssignment = async (req, res) => {
   try {
-    if (!req.file) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'File is required (field "file")' });
+    if (!req.file?.path || !req.file?.filename) {
+      return res.status(400).json({
+        success: false,
+        message: 'File is required (field name: "file")',
+      });
     }
 
-    const { description = '' } = req.body || {};
-    const file = req.file;
+    const { description = "" } = req.body || {};
 
     const doc = await Assignment.create({
-      originalName: file.originalname,
-      fileName: file.filename,
-      mimeType: file.mimetype,
-      size: file.size,
-      description,
+      originalName: req.file.originalname,
+      fileUrl: req.file.path,          // 🔥 Cloudinary URL
+      publicId: req.file.filename,     // 🔥 Cloudinary public_id
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      description: description.trim(),
       uploadedBy: req.user?._id || null,
     });
 
     return res.status(201).json({ success: true, data: doc });
   } catch (err) {
-    console.error('createAssignment error:', err);
+    console.error("createAssignment error:", err);
     return res
       .status(500)
-      .json({ success: false, message: 'Error creating assignment' });
+      .json({ success: false, message: "Error creating assignment" });
   }
 };
 
 /**
  * GET /api/assignments
- * List all assignments (admin)
+ * List assignments
  */
 exports.getAssignments = async (req, res) => {
   try {
-    const list = await Assignment.find().sort({ createdAt: -1 }).lean();
+    const list = await Assignment.find()
+      .sort({ createdAt: -1 })
+      .lean();
+
     return res.json({ success: true, data: list });
   } catch (err) {
-    console.error('getAssignments error:', err);
+    console.error("getAssignments error:", err);
     return res
       .status(500)
-      .json({ success: false, message: 'Error fetching assignments' });
+      .json({ success: false, message: "Error fetching assignments" });
   }
 };
 
 /**
  * PUT /api/assignments/:id
- * Update description (and optionally file if you extend later)
+ * Update description only
  */
 exports.updateAssignment = async (req, res) => {
   try {
-    const id = req.params.id;
-    if (!id)
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res
         .status(400)
-        .json({ success: false, message: 'Invalid assignment id' });
-
-    const update = {};
-    if (typeof req.body.description === 'string') {
-      update.description = req.body.description;
+        .json({ success: false, message: "Invalid assignment id" });
     }
 
-    // If later you want to support re-uploading the file, you can handle req.file here
+    const update = {};
+    if (typeof req.body.description === "string") {
+      update.description = req.body.description.trim();
+    }
 
     const doc = await Assignment.findByIdAndUpdate(id, update, {
       new: true,
@@ -88,88 +85,94 @@ exports.updateAssignment = async (req, res) => {
     if (!doc) {
       return res
         .status(404)
-        .json({ success: false, message: 'Assignment not found' });
+        .json({ success: false, message: "Assignment not found" });
     }
 
     return res.json({ success: true, data: doc });
   } catch (err) {
-    console.error('updateAssignment error:', err);
+    console.error("updateAssignment error:", err);
     return res
       .status(500)
-      .json({ success: false, message: 'Error updating assignment' });
+      .json({ success: false, message: "Error updating assignment" });
   }
 };
 
 /**
  * DELETE /api/assignments/:id
- * Remove assignment record and delete file from disk
+ * Deletes DB record AND Cloudinary file
  */
 exports.deleteAssignment = async (req, res) => {
   try {
-    const id = req.params.id;
-    if (!id)
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res
         .status(400)
-        .json({ success: false, message: 'Invalid assignment id' });
+        .json({ success: false, message: "Invalid assignment id" });
+    }
 
     const doc = await Assignment.findById(id);
     if (!doc) {
       return res
         .status(404)
-        .json({ success: false, message: 'Assignment not found' });
+        .json({ success: false, message: "Assignment not found" });
     }
 
-    // Try to delete the file from disk
-    if (doc.fileName) {
-      const filePath = resolveFilePath(doc.fileName);
+    // Delete file from Cloudinary
+    if (doc.publicId) {
       try {
-        await fs.unlink(filePath);
-      } catch (e) {
-        // Don't blow up if file is already missing
+        await cloudinary.uploader.destroy(doc.publicId, {
+          resource_type: "raw",
+        });
+      } catch (cloudErr) {
         console.warn(
-          'deleteAssignment: failed to unlink file',
-          filePath,
-          e?.message || e
+          "Cloudinary delete failed:",
+          cloudErr?.message || cloudErr
         );
       }
     }
 
     await Assignment.findByIdAndDelete(id);
 
-    return res.json({ success: true, message: 'Assignment deleted' });
+    return res.json({
+      success: true,
+      message: "Assignment deleted",
+    });
   } catch (err) {
-    console.error('deleteAssignment error:', err);
+    console.error("deleteAssignment error:", err);
     return res
       .status(500)
-      .json({ success: false, message: 'Error deleting assignment' });
+      .json({ success: false, message: "Error deleting assignment" });
   }
 };
 
 /**
  * GET /api/assignments/:id/download
- * Stream file to browser as download
+ * Redirects to Cloudinary URL
  */
 exports.downloadAssignment = async (req, res) => {
   try {
-    const id = req.params.id;
-    if (!id)
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return res
         .status(400)
-        .json({ success: false, message: 'Invalid assignment id' });
+        .json({ success: false, message: "Invalid assignment id" });
+    }
 
-    const doc = await Assignment.findById(id);
+    const doc = await Assignment.findById(id).lean();
     if (!doc) {
       return res
         .status(404)
-        .json({ success: false, message: 'Assignment not found' });
+        .json({ success: false, message: "Assignment not found" });
     }
 
-    const filePath = resolveFilePath(doc.fileName);
-    return res.download(filePath, doc.originalName || 'assignment');
+    // Let browser download directly from Cloudinary
+    return res.redirect(doc.fileUrl);
   } catch (err) {
-    console.error('downloadAssignment error:', err);
+    console.error("downloadAssignment error:", err);
     return res
       .status(500)
-      .json({ success: false, message: 'Error downloading assignment' });
+      .json({ success: false, message: "Error downloading assignment" });
   }
 };

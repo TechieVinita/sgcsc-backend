@@ -1,9 +1,10 @@
-const express = require('express');
-const path = require('path');
-const fs = require('fs');
-const multer = require('multer');
+const express = require("express");
+const router = express.Router();
 
-const verifyAdmin = require('../middleware/authMiddleware');
+const verifyAdmin = require("../middleware/authMiddleware");
+const { uploadImage } = require("../middleware/upload");
+
+
 const {
   createStudent,
   getStudents,
@@ -12,37 +13,31 @@ const {
   deleteStudent,
   getRecentStudents,
   getCertifiedStudents,
-} = require('../controllers/studentController');
-
-const router = express.Router();
+} = require("../controllers/studentController");
 
 /* ================= PUBLIC HOME ROUTES ================= */
-// MUST BE FIRST
-router.get('/recent-home', getRecentStudents);
-router.get('/certified-home', getCertifiedStudents);
+router.get("/recent-home", getRecentStudents);
+router.get("/certified-home", getCertifiedStudents);
 
-/* ================= GENERIC ================= */
-router.get('/', getStudents);
-router.get('/:id', getStudent);
+/* ================= PUBLIC ================= */
+router.get("/", getStudents);
+router.get("/:id", getStudent);
 
 /* ================= ADMIN ================= */
-const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
+router.post(
+  "/",
+  verifyAdmin,
+  uploadImage.single("photo"), // Cloudinary
+  createStudent
+);
 
-const storage = multer.diskStorage({
-  destination: uploadsDir,
-  filename: (_req, file, cb) => {
-    const safe = file.originalname.replace(/\s+/g, '-');
-    cb(null, `${Date.now()}-${safe}`);
-  },
-});
+router.put(
+  "/:id",
+  verifyAdmin,
+  uploadImage.single("photo"), // optional new photo
+  updateStudent
+);
 
-const upload = multer({ storage });
-
-router.post('/', verifyAdmin, upload.single('photo'), createStudent);
-router.put('/:id', verifyAdmin, upload.single('photo'), updateStudent);
-router.delete('/:id', verifyAdmin, deleteStudent);
+router.delete("/:id", verifyAdmin, deleteStudent);
 
 module.exports = router;

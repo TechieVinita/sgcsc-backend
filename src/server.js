@@ -80,11 +80,6 @@ app.use(
  *   server/src/uploads
  * So we MUST serve THAT directory
  */
-app.use(
-  "/uploads",
-  express.static(path.join(__dirname, "src", "uploads"))
-);
-
 /* ===================== API ROUTES ===================== */
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/members", require("./routes/membersRoutes"));
@@ -99,6 +94,11 @@ app.use("/api/admit-cards", require("./routes/admitCardRoutes"));
 app.use("/api/certificates", require("./routes/certificateRoutes"));
 app.use("/api/study-materials", require("./routes/studyMaterialRoutes"));
 app.use("/api/assignments", require("./routes/assignmentRoutes"));
+
+
+app.use("/api/student-auth", require("./routes/studentAuthRoutes"));
+app.use("/api/student-profile", require("./routes/studentProfileRoutes"));
+
 
 /* ===================== Health Check ===================== */
 app.get("/health", (_req, res) => {

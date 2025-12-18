@@ -1,28 +1,32 @@
 // server/src/controllers/studyMaterialController.js
-const path = require('path');
-const fs = require('fs/promises');
-const StudyMaterial = require('../models/StudyMaterial');
-
-const UPLOADS_DIR = path.join(__dirname, '..', 'uploads');
-
-function filePathFor(filename) {
-  if (!filename) return null;
-  return path.join(UPLOADS_DIR, filename);
-}
+const mongoose = require("mongoose");
+const cloudinary = require("../config/cloudinary");
+const StudyMaterial = require("../models/StudyMaterial");
 
 /* ================= CREATE ================= */
+/**
+ * POST /api/study-materials
+ * Multipart form-data:
+ *  - file (optional)
+ *  - linkUrl (optional)
+ *  - name (required)
+ *  - description (optional)
+ *  - type (optional)
+ */
 exports.createMaterial = async (req, res) => {
   try {
-    const { name, description = '', type = 'other', linkUrl = '' } = req.body;
+    const { name, description = "", type = "other", linkUrl = "" } = req.body;
 
     if (!name || !name.trim()) {
-      return res.status(400).json({ success: false, message: 'Name is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: "Name is required" });
     }
 
-    if (!req.file && !linkUrl) {
+    if (!req.file?.path && !linkUrl?.trim()) {
       return res.status(400).json({
         success: false,
-        message: 'Either file upload or link URL is required',
+        message: "Either file upload or link URL is required",
       });
     }
 
@@ -31,16 +35,21 @@ exports.createMaterial = async (req, res) => {
       description: description.trim(),
       type,
       linkUrl: linkUrl.trim(),
-      fileName: req.file ? req.file.filename : '',
-      mimeType: req.file ? req.file.mimetype : '',
-      sizeBytes: req.file ? req.file.size : 0,
+
+      // 🔥 Cloudinary fields (only if file uploaded)
+      fileUrl: req.file?.path || "",
+      publicId: req.file?.filename || "",
+      mimeType: req.file?.mimetype || "",
+      sizeBytes: req.file?.size || 0,
+
       uploadedBy: req.user?._id || null,
+      isActive: true,
     });
 
     res.status(201).json({ success: true, data: doc });
   } catch (err) {
-    console.error('createMaterial:', err);
-    res.status(500).json({ success: false, message: 'Create failed' });
+    console.error("createMaterial error:", err);
+    res.status(500).json({ success: false, message: "Create failed" });
   }
 };
 
@@ -53,17 +62,27 @@ exports.listMaterials = async (_req, res) => {
 
     res.json({ success: true, data: items });
   } catch (err) {
-    console.error('listMaterials:', err);
-    res.status(500).json({ success: false, message: 'Fetch failed' });
+    console.error("listMaterials error:", err);
+    res.status(500).json({ success: false, message: "Fetch failed" });
   }
 };
 
-/* ================= UPDATE (🔥 MISSING BEFORE) ================= */
+/* ================= UPDATE ================= */
 exports.updateMaterial = async (req, res) => {
   try {
-    const doc = await StudyMaterial.findById(req.params.id);
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid id" });
+    }
+
+    const doc = await StudyMaterial.findById(id);
     if (!doc) {
-      return res.status(404).json({ success: false, message: 'Not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Not found" });
     }
 
     const { name, description, type, linkUrl, isActive } = req.body;
@@ -74,14 +93,23 @@ exports.updateMaterial = async (req, res) => {
     if (linkUrl !== undefined) doc.linkUrl = linkUrl.trim();
     if (isActive !== undefined) doc.isActive = !!isActive;
 
-    if (req.file) {
-      if (doc.fileName) {
+    // 🔥 If new file uploaded → delete old Cloudinary file
+    if (req.file?.path && req.file?.filename) {
+      if (doc.publicId) {
         try {
-          await fs.unlink(filePathFor(doc.fileName));
-        } catch {}
+          await cloudinary.uploader.destroy(doc.publicId, {
+            resource_type: "raw",
+          });
+        } catch (cloudErr) {
+          console.warn(
+            "Cloudinary delete failed:",
+            cloudErr?.message || cloudErr
+          );
+        }
       }
 
-      doc.fileName = req.file.filename;
+      doc.fileUrl = req.file.path;
+      doc.publicId = req.file.filename;
       doc.mimeType = req.file.mimetype;
       doc.sizeBytes = req.file.size;
     }
@@ -89,50 +117,78 @@ exports.updateMaterial = async (req, res) => {
     await doc.save();
     res.json({ success: true, data: doc });
   } catch (err) {
-    console.error('updateMaterial:', err);
-    res.status(500).json({ success: false, message: 'Update failed' });
+    console.error("updateMaterial error:", err);
+    res.status(500).json({ success: false, message: "Update failed" });
   }
 };
 
 /* ================= DELETE ================= */
 exports.deleteMaterial = async (req, res) => {
   try {
-    const doc = await StudyMaterial.findById(req.params.id);
-    if (!doc) {
-      return res.status(404).json({ success: false, message: 'Not found' });
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid id" });
     }
 
-    if (doc.fileName) {
+    const doc = await StudyMaterial.findById(id);
+    if (!doc) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Not found" });
+    }
+
+    // 🔥 Delete file from Cloudinary
+    if (doc.publicId) {
       try {
-        await fs.unlink(filePathFor(doc.fileName));
-      } catch {}
+        await cloudinary.uploader.destroy(doc.publicId, {
+          resource_type: "raw",
+        });
+      } catch (cloudErr) {
+        console.warn(
+          "Cloudinary delete failed:",
+          cloudErr?.message || cloudErr
+        );
+      }
     }
 
     await doc.deleteOne();
-    res.json({ success: true, message: 'Deleted' });
+
+    res.json({ success: true, message: "Deleted" });
   } catch (err) {
-    console.error('deleteMaterial:', err);
-    res.status(500).json({ success: false, message: 'Delete failed' });
+    console.error("deleteMaterial error:", err);
+    res.status(500).json({ success: false, message: "Delete failed" });
   }
 };
 
-/* ================= DOWNLOAD (FIXED) ================= */
+/* ================= DOWNLOAD ================= */
+/**
+ * GET /api/study-materials/:id/download
+ * Redirects to Cloudinary file
+ */
 exports.downloadMaterial = async (req, res) => {
   try {
-    const doc = await StudyMaterial.findById(req.params.id);
-    if (!doc || !doc.fileName) {
-      return res.status(404).json({ success: false, message: 'File not found' });
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid id" });
     }
 
-    const filePath = filePathFor(doc.fileName);
+    const doc = await StudyMaterial.findById(id).lean();
+    if (!doc || !doc.fileUrl) {
+      return res
+        .status(404)
+        .json({ success: false, message: "File not found" });
+    }
 
-    res.download(
-      filePath,
-      doc.fileName,
-      { headers: { 'Content-Type': doc.mimeType } }
-    );
+    // Let browser handle download
+    return res.redirect(doc.fileUrl);
   } catch (err) {
-    console.error('downloadMaterial:', err);
-    res.status(500).json({ success: false, message: 'Download failed' });
+    console.error("downloadMaterial error:", err);
+    res.status(500).json({ success: false, message: "Download failed" });
   }
 };

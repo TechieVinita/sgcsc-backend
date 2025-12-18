@@ -1,35 +1,44 @@
-// server/src/routes/authRoutes.js
 const express = require("express");
-const authController = require("../controllers/authController");
-const verifyAdmin = require("../middleware/authMiddleware");
-const verifyStudent = require("../middleware/verifyStudent");
-
 const router = express.Router();
+const jwt = require("jsonwebtoken");
+const Student = require("../models/Student");
 
-/* ================= ADMIN ================= */
+/* ===========================
+   STUDENT LOGIN
+=========================== */
+router.post("/student-login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
 
-// Admin login
-router.post("/admin-login", authController.adminLogin);
+    if (!username || !password) {
+      return res.status(400).json({ message: "Missing credentials" });
+    }
 
-// Admin profile
-router.get("/me", verifyAdmin, (req, res) => {
-  return res.json({
-    success: true,
-    data: req.user,
-  });
-});
+    const student = await Student.findOne({ username });
 
-/* ================= STUDENT ================= */
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
-// Student login
-router.post("/student-login", authController.studentLogin);
+    const isMatch = await student.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
 
-// Student profile
-router.get("/student-me", verifyStudent, (req, res) => {
-  return res.json({
-    success: true,
-    data: req.student,
-  });
+    const token = jwt.sign(
+      { id: student._id, role: "student" },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      token,
+      data: student,
+    });
+  } catch (err) {
+    console.error("❌ Student login error:", err);
+    res.status(500).json({ message: "Login failed" });
+  }
 });
 
 module.exports = router;

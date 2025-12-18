@@ -1,5 +1,4 @@
 // server/src/controllers/marksheetController.js
-const puppeteer = require('puppeteer');
 const Handlebars = require('handlebars');
 const MarksheetTemplate = require('../models/MarksheetTemplate');
 const Student = require('../models/Student');
@@ -13,7 +12,6 @@ exports.generatePdf = async (req, res) => {
 
   const html = Handlebars.compile(tpl.html)({ student, results, date: new Date().toLocaleDateString() });
 
-  const browser = await puppeteer.launch({ args: ['--no-sandbox','--disable-setuid-sandbox'] });
   const page = await browser.newPage();
   await page.setContent(html, { waitUntil: 'networkidle0' });
   const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });

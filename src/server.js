@@ -99,6 +99,8 @@ app.use("/api/assignments", require("./routes/assignmentRoutes"));
 app.use("/api/student-auth", require("./routes/studentAuthRoutes"));
 app.use("/api/student-profile", require("./routes/studentProfileRoutes"));
 
+app.use("/api/public/franchise", require("./routes/publicFranchiseRoutes"));
+
 
 /* ===================== Health Check ===================== */
 app.get("/health", (_req, res) => {

@@ -43,6 +43,19 @@ const franchiseSchema = new mongoose.Schema(
     hasWaterSupply: { type: Boolean, default: false },
     hasToilet: { type: Boolean, default: false },
 
+    status: {
+      type: String,
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending',
+      index: true,
+    },
+
+    approvedAt: {
+      type: Date,
+    },
+
+
+
     // 🔑 LOGIN
     username: {
       type: String,

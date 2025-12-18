@@ -25,20 +25,20 @@ exports.createFranchisePublic = async (req, res) => {
     const files = req.files || {};
 
     const franchise = await Franchise.create({
-      ...req.body,
+  ...req.body,
 
-      // FILES
-      aadharFront: files.aadharFront?.[0]?.filename,
-      aadharBack: files.aadharBack?.[0]?.filename,
-      panImage: files.panImage?.[0]?.filename,
-      institutePhoto: files.institutePhoto?.[0]?.filename,
-      ownerSign: files.ownerSign?.[0]?.filename,
-      ownerImage: files.ownerImage?.[0]?.filename,
-      certificateFile: files.certificateFile?.[0]?.filename,
+  // uploaded files
+  aadharFront: files.aadharFront?.[0]?.filename,
+  aadharBack: files.aadharBack?.[0]?.filename,
+  panImage: files.panImage?.[0]?.filename,
+  institutePhoto: files.institutePhoto?.[0]?.filename,
+  ownerSign: files.ownerSign?.[0]?.filename,
+  ownerImage: files.ownerImage?.[0]?.filename,
+  certificateFile: files.certificateFile?.[0]?.filename,
 
-      // IMPORTANT: mark as pending / inactive
-      isApproved: false,
-    });
+  status: 'pending',
+});
+
 
     return res.status(201).json({
       success: true,
@@ -107,6 +107,10 @@ exports.createFranchise = async (req, res) => {
       instituteName: instituteName.trim(),
       username: uname,
       passwordHash,
+
+      status: 'approved',
+      approvedAt: new Date(),
+
 
       ...rest,
 
@@ -178,56 +182,82 @@ exports.checkUsernameUnique = async (req, res) => {
   }
 };
 
+// const franchise = await Franchise.findOne({
+//   instituteId,
+//   status: 'approved'
+// }).select('instituteName ownerName state district');
+
+
 /* =========================================================
    LIST FRANCHISES
    ========================================================= */
-exports.getFranchises = async (_req, res) => {
-  try {
-    const list = await Franchise.find()
-      .select('-passwordHash')
-      .sort({ createdAt: -1 });
-
-    return res.json({
-      success: true,
-      data: list,
-    });
-  } catch (err) {
-    console.error('getFranchises error:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to load franchises',
-    });
+exports.getFranchises = async (req, res) => {
+  const filter = {};
+  if (req.query.status) {
+    filter.status = req.query.status;
   }
+
+  const list = await Franchise.find(filter)
+    .select('-passwordHash')
+    .sort({ createdAt: -1 });
+
+  res.json({ success: true, data: list });
 };
+
 
 /* =========================================================
    GET SINGLE FRANCHISE
    ========================================================= */
-exports.getFranchise = async (req, res) => {
-  try {
-    const franchise = await Franchise.findById(req.params.id).select(
-      '-passwordHash'
-    );
+// exports.getFranchise = async (req, res) => {
+//   try {
+//     const franchise = await Franchise.findById(req.params.id).select(
+//       '-passwordHash'
+//     );
 
-    if (!franchise) {
-      return res.status(404).json({
-        success: false,
-        message: 'Franchise not found',
-      });
-    }
+//     if (!franchise) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Franchise not found',
+//       });
+//     }
 
-    return res.json({
-      success: true,
-      data: franchise,
-    });
-  } catch (err) {
-    console.error('getFranchise error:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to load franchise',
-    });
-  }
+//     return res.json({
+//       success: true,
+//       data: franchise,
+//     });
+//   } catch (err) {
+//     console.error('getFranchise error:', err);
+//     return res.status(500).json({
+//       success: false,
+//       message: 'Failed to load franchise',
+//     });
+//   }
+// };
+
+
+
+exports.approveFranchise = async (req, res) => {
+  const franchise = await Franchise.findById(req.params.id);
+
+  franchise.status = 'approved';
+  franchise.approvedAt = new Date();
+
+  await franchise.save();
+
+  res.json({ success: true, data: franchise });
 };
+
+exports.rejectFranchise = async (req, res) => {
+  const franchise = await Franchise.findById(req.params.id);
+
+  franchise.status = 'rejected';
+
+  await franchise.save();
+
+  res.json({ success: true, data: franchise });
+};
+
+
 
 /* =========================================================
    UPDATE FRANCHISE
@@ -312,3 +342,61 @@ exports.deleteFranchise = async (req, res) => {
     });
   }
 };
+
+
+exports.verifyFranchisePublic = async (req, res) => {
+  try {
+    const { instituteId } = req.query;
+
+    if (!instituteId) {
+      return res.status(400).json({
+        success: false,
+        message: "Institute ID is required",
+      });
+    }
+
+    const franchise = await Franchise.findOne({
+      instituteId: instituteId.trim(),
+      status: "approved",
+    }).select("instituteName ownerName state district");
+
+    if (!franchise) {
+      return res.json({
+        success: true,
+        verified: false,
+      });
+    }
+
+    return res.json({
+      success: true,
+      verified: true,
+      data: franchise,
+    });
+  } catch (err) {
+    console.error("verifyFranchisePublic error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Verification failed",
+    });
+  }
+};
+
+exports.listApprovedFranchises = async (_req, res) => {
+  try {
+    const franchises = await Franchise.find({
+      status: "approved",
+    }).select("instituteId instituteName district state");
+
+    res.json({
+      success: true,
+      data: franchises,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to load franchises",
+    });
+  }
+};
+
+

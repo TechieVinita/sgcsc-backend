@@ -227,8 +227,9 @@ exports.updateStudent = async (req, res, next) => {
 
     // optional new photo
     if (req.file && req.file.filename) {
-      update.photo = req.file.filename;
-    }
+  update.photo = `/uploads/${req.file.filename}`;
+}
+
 
     // drop undefined keys
     Object.keys(update).forEach(

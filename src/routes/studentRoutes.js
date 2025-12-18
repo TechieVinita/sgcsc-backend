@@ -16,15 +16,16 @@ const {
 
 const router = express.Router();
 
-/* ---------- PUBLIC (STATIC FIRST) ---------- */
+/* ================= PUBLIC HOME ROUTES ================= */
+// MUST BE FIRST
 router.get('/recent-home', getRecentStudents);
 router.get('/certified-home', getCertifiedStudents);
 
-/* ---------- GENERIC ---------- */
+/* ================= GENERIC ================= */
 router.get('/', getStudents);
 router.get('/:id', getStudent);
 
-/* ---------- ADMIN ---------- */
+/* ================= ADMIN ================= */
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
@@ -32,7 +33,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 const storage = multer.diskStorage({
   destination: uploadsDir,
-  filename: (req, file, cb) => {
+  filename: (_req, file, cb) => {
     const safe = file.originalname.replace(/\s+/g, '-');
     cb(null, `${Date.now()}-${safe}`);
   },

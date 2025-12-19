@@ -6,10 +6,6 @@ const bcrypt = require("bcryptjs");
 const Franchise = require("../models/Franchise");
 
 
-
-
-
-
 const JWT_SECRET = process.env.JWT_SECRET || "CHANGE_THIS_SECRET";
 const EXPIRES = "7d";
 
@@ -173,6 +169,75 @@ exports.franchiseLogin = async (req, res) => {
   } catch (error) {
     console.error("Franchise login error:", error);
     res.status(500).json({
+      message: "Login failed",
+    });
+  }
+};
+
+/* ================= FRANCHISE LOGIN ================= */
+
+exports.franchiseLogin = async (req, res) => {
+  try {
+    const { identifier, password } = req.body;
+
+    if (!identifier || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Username/email and password are required",
+      });
+    }
+
+    // Find franchise by username or email
+    const franchise = await Franchise.findOne({
+      $or: [
+        { username: identifier.toLowerCase() },
+        { email: identifier.toLowerCase() },
+      ],
+      status: "approved", // ONLY approved franchises can login
+    });
+
+    if (!franchise) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials or franchise not approved",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, franchise.passwordHash);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: franchise._id,
+        role: "franchise",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: franchise._id,
+          instituteId: franchise.instituteId,
+          instituteName: franchise.instituteName,
+          ownerName: franchise.ownerName,
+          role: "franchise",
+        },
+      },
+    });
+  } catch (err) {
+    console.error("Franchise login error:", err);
+    res.status(500).json({
+      success: false,
       message: "Login failed",
     });
   }

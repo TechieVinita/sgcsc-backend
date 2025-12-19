@@ -24,6 +24,7 @@ router.post(
 router.post("/", franchiseUploads, createFranchise);
 router.get("/", getFranchises);
 router.put("/:id", updateFranchise);
+
 router.delete("/:id", deleteFranchise);
 
 

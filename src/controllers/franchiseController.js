@@ -20,36 +20,54 @@ const fileFrom = (req, field) =>
 
 
 
+
 exports.createFranchisePublic = async (req, res) => {
   try {
-    const files = req.files || {};
-
     const franchise = await Franchise.create({
-  ...req.body,
+      instituteId: `TMP-${Date.now()}`, // TEMP UNIQUE ID
 
-  // uploaded files
-  aadharFront: files.aadharFront?.[0]?.filename,
-  aadharBack: files.aadharBack?.[0]?.filename,
-  panImage: files.panImage?.[0]?.filename,
-  institutePhoto: files.institutePhoto?.[0]?.filename,
-  ownerSign: files.ownerSign?.[0]?.filename,
-  ownerImage: files.ownerImage?.[0]?.filename,
-  certificateFile: files.certificateFile?.[0]?.filename,
+      ownerName: req.body.ownerName,
+      instituteName: req.body.instituteName,
+      dob: req.body.dob,
 
-  status: 'pending',
-});
+      address: req.body.address,
+      state: req.body.state,
+      district: req.body.district,
 
+      operatorsCount: Number(req.body.numTeachers || 0),
+      classRooms: Number(req.body.numClassrooms || 0),
+      totalComputers: Number(req.body.totalComputers || 0),
+
+      ownerQualification: req.body.qualification,
+
+      hasStaffRoom: req.body.staffRoom === "Yes",
+      hasWaterSupply: req.body.waterSupply === "Yes",
+      hasToilet: req.body.toilet === "Yes",
+
+      whatsapp: req.body.whatsapp,
+      contact: req.body.contact,
+      email: req.body.email,
+
+      // Files
+      aadharFront: req.files?.aadharFront?.[0]?.filename,
+      aadharBack: req.files?.aadharBack?.[0]?.filename,
+      institutePhoto: req.files?.institutePhoto?.[0]?.filename,
+      ownerSign: req.files?.ownerSign?.[0]?.filename,
+      ownerImage: req.files?.ownerImage?.[0]?.filename,
+
+      status: "pending",
+    });
 
     return res.status(201).json({
       success: true,
-      message: 'Franchise registration submitted successfully',
+      message: "Franchise application submitted successfully",
       data: franchise,
     });
   } catch (err) {
-    console.error('public franchise create error:', err);
+    console.error("Public franchise create error:", err);
     return res.status(400).json({
       success: false,
-      message: err.message || 'Franchise registration failed',
+      message: err.message || "Franchise registration failed",
     });
   }
 };
@@ -260,58 +278,91 @@ exports.rejectFranchise = async (req, res) => {
 
 
 /* =========================================================
-   UPDATE FRANCHISE
+   UPDATE FRANCHISE (ADMIN)
    ========================================================= */
 exports.updateFranchise = async (req, res) => {
   try {
-    const updates = { ...req.body };
+    const franchise = await Franchise.findById(req.params.id);
 
-    if (updates.password) {
-      updates.passwordHash = await hashPassword(updates.password);
-      delete updates.password;
-    }
-
-    updates.hasReception = normalizeBool(updates.hasReception);
-    updates.hasStaffRoom = normalizeBool(updates.hasStaffRoom);
-    updates.hasWaterSupply = normalizeBool(updates.hasWaterSupply);
-    updates.hasToilet = normalizeBool(updates.hasToilet);
-
-    // overwrite uploaded files only if provided
-    [
-      'aadharFront',
-      'aadharBack',
-      'panImage',
-      'institutePhoto',
-      'ownerSign',
-      'ownerImage',
-      'certificateFile',
-    ].forEach((f) => {
-      const file = fileFrom(req, f);
-      if (file) updates[f] = file;
-    });
-
-    const updated = await Franchise.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true }
-    ).select('-passwordHash');
-
-    if (!updated) {
+    if (!franchise) {
       return res.status(404).json({
         success: false,
-        message: 'Franchise not found',
+        message: "Franchise not found",
       });
     }
 
+/* ---------- BASIC FIELD UPDATES (EXPLICIT & SAFE) ---------- */
+if (req.body.instituteId !== undefined) franchise.instituteId = req.body.instituteId;
+if (req.body.ownerName !== undefined) franchise.ownerName = req.body.ownerName;
+if (req.body.instituteName !== undefined) franchise.instituteName = req.body.instituteName;
+if (req.body.address !== undefined) franchise.address = req.body.address;
+if (req.body.state !== undefined) franchise.state = req.body.state;
+if (req.body.district !== undefined) franchise.district = req.body.district;
+if (req.body.operatorsCount !== undefined) franchise.operatorsCount = Number(req.body.operatorsCount);
+if (req.body.classRooms !== undefined) franchise.classRooms = Number(req.body.classRooms);
+if (req.body.totalComputers !== undefined) franchise.totalComputers = Number(req.body.totalComputers);
+if (req.body.whatsapp !== undefined) franchise.whatsapp = req.body.whatsapp;
+if (req.body.contact !== undefined) franchise.contact = req.body.contact;
+if (req.body.email !== undefined) franchise.email = req.body.email;
+if (req.body.ownerQualification !== undefined) franchise.ownerQualification = req.body.ownerQualification;
+if (req.body.username !== undefined) franchise.username = req.body.username;
+
+
+/* ---------- DATE OF BIRTH (CRITICAL FIX) ---------- */
+if (req.body.dob) {
+  const [dd, mm, yyyy] = req.body.dob.split("-");
+  const parsedDob = new Date(`${yyyy}-${mm}-${dd}`);
+  if (!isNaN(parsedDob)) {
+    franchise.dob = parsedDob;
+  }
+}
+
+
+    /* ---------- STATUS UPDATE (CRITICAL) ---------- */
+    if (req.body.status) {
+      franchise.status = req.body.status;
+      if (req.body.status === "approved") {
+        franchise.approvedAt = new Date();
+      }
+    }
+
+    /* ---------- PASSWORD UPDATE ---------- */
+    if (req.body.password && req.body.password.trim() !== "") {
+      franchise.passwordHash = await hashPassword(req.body.password);
+    }
+
+    /* ---------- BOOLEAN NORMALIZATION ---------- */
+    franchise.hasReception = normalizeBool(req.body.hasReception);
+    franchise.hasStaffRoom = normalizeBool(req.body.hasStaffRoom);
+    franchise.hasWaterSupply = normalizeBool(req.body.hasWaterSupply);
+    franchise.hasToilet = normalizeBool(req.body.hasToilet);
+
+    /* ---------- FILE UPDATES ---------- */
+    [
+      "aadharFront",
+      "aadharBack",
+      "panImage",
+      "institutePhoto",
+      "ownerSign",
+      "ownerImage",
+      "certificateFile",
+    ].forEach((f) => {
+      const file = fileFrom(req, f);
+      if (file) franchise[f] = file;
+    });
+
+    /* ---------- SAVE ---------- */
+    await franchise.save();
+
     return res.json({
       success: true,
-      data: updated,
+      data: franchise,
     });
   } catch (err) {
-    console.error('updateFranchise error:', err);
+    console.error("updateFranchise error:", err);
     return res.status(500).json({
       success: false,
-      message: 'Failed to update franchise',
+      message: "Failed to update franchise",
     });
   }
 };
@@ -398,5 +449,9 @@ exports.listApprovedFranchises = async (_req, res) => {
     });
   }
 };
+
+/* =========================================================
+   LIST APPROVED FRANCHISES (PUBLIC)
+   ========================================================= */
 
 

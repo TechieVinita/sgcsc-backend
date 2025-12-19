@@ -46,6 +46,8 @@ app.use(compression());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+
+
 /* ===================== Logger ===================== */
 if (NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -85,6 +87,10 @@ app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/members", require("./routes/membersRoutes"));
 app.use("/api/affiliations", require("./routes/affiliations"));
 app.use("/api/franchises", require("./routes/franchiseRoutes"));
+
+app.use("/api/franchise-profile", require("./routes/franchiseProfileRoutes"));
+
+
 app.use("/api/students", require("./routes/studentRoutes"));
 app.use("/api/courses", require("./routes/courseRoutes"));
 app.use("/api/subjects", require("./routes/subjectRoutes"));
@@ -100,6 +106,8 @@ app.use("/api/student-auth", require("./routes/studentAuthRoutes"));
 app.use("/api/student-profile", require("./routes/studentProfileRoutes"));
 
 app.use("/api/public/franchise", require("./routes/publicFranchiseRoutes"));
+
+
 
 
 /* ===================== Health Check ===================== */

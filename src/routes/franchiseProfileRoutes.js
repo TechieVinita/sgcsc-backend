@@ -1,45 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const Franchise = require("../models/Franchise");
-const franchiseAuth = require("../middleware/franchiseAuth");
+const authUser = require("../middleware/authUser");
 
-/* =========================================================
-   GET LOGGED-IN FRANCHISE PROFILE
-   ========================================================= */
-router.get("/me", franchiseAuth, async (req, res) => {
-  res.json({
-    success: true,
-    data: req.franchise,
-  });
-});
+router.get("/me", authUser, async (req, res) => {
+  if (req.userRole !== "franchise") {
+    return res.status(403).json({ message: "Access denied" });
+  }
 
-/* =========================================================
-   UPDATE LOGGED-IN FRANCHISE PROFILE
-   ========================================================= */
-router.put("/me", franchiseAuth, async (req, res) => {
-  const allowedFields = [
-    "contact",
-    "whatsapp",
-    "address",
-    "district",
-    "state",
-    "totalComputers",
-    "classRooms",
-    "operatorsCount",
-  ];
+  const franchise = await Franchise.findById(req.userId).select("-passwordHash");
 
-  allowedFields.forEach((field) => {
-    if (req.body[field] !== undefined) {
-      req.franchise[field] = req.body[field];
-    }
-  });
+  if (!franchise) {
+    return res.status(404).json({ message: "Franchise not found" });
+  }
 
-  await req.franchise.save();
-
-  res.json({
-    success: true,
-    data: req.franchise,
-  });
+  res.json(franchise);
 });
 
 module.exports = router;

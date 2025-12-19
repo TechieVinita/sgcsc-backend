@@ -84,9 +84,14 @@ app.use(
  */
 /* ===================== API ROUTES ===================== */
 app.use("/api/auth", require("./routes/authRoutes"));
+app.use("/api/franchise-auth", require("./routes/franchiseAuthRoutes"));
+app.use("/api/student-auth", require("./routes/studentAuthRoutes"));
+
+
 app.use("/api/members", require("./routes/membersRoutes"));
 app.use("/api/affiliations", require("./routes/affiliations"));
 app.use("/api/franchises", require("./routes/franchiseRoutes"));
+
 
 app.use("/api/franchise-profile", require("./routes/franchiseProfileRoutes"));
 
@@ -102,12 +107,12 @@ app.use("/api/study-materials", require("./routes/studyMaterialRoutes"));
 app.use("/api/assignments", require("./routes/assignmentRoutes"));
 
 
-app.use("/api/student-auth", require("./routes/studentAuthRoutes"));
 app.use("/api/student-profile", require("./routes/studentProfileRoutes"));
 
 app.use("/api/public/franchise", require("./routes/publicFranchiseRoutes"));
 
 
+app.use("/api/public", require("./routes/publicVerificationRoutes"));
 
 
 /* ===================== Health Check ===================== */

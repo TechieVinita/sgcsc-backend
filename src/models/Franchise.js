@@ -57,13 +57,18 @@ const franchiseSchema = new mongoose.Schema(
 
 
     // 🔑 LOGIN
+
     username: {
-      type: String,
-      trim: true,
-      lowercase: true,
+  type: String,
+  required: true,
+  unique: true,
+  trim: true,
+  lowercase: true,
       index: true,
       sparse: true, // IMPORTANT: allows old docs without username
-    },
+},
+
+
     passwordHash: String,
   },
   { timestamps: true }

@@ -119,61 +119,6 @@ exports.studentLogin = async (req, res) => {
   }
 };
 
-exports.franchiseLogin = async (req, res) => {
-  try {
-    const { username, password } = req.body;
-
-    const franchise = await Franchise.findOne({ username });
-
-    if (!franchise) {
-      return res.status(401).json({
-        message: "Invalid username or password",
-      });
-    }
-
-    // 🔒 BLOCK pending / rejected franchises
-    if (franchise.status !== "approved") {
-      return res.status(403).json({
-        message: "Franchise not approved yet",
-      });
-    }
-
-    // 🔒 BLOCK if login not enabled
-    if (!franchise.username || !franchise.passwordHash) {
-      return res.status(403).json({
-        message: "Login not enabled for this franchise",
-      });
-    }
-
-    const isMatch = await bcrypt.compare(password, franchise.passwordHash);
-    if (!isMatch) {
-      return res.status(401).json({
-        message: "Invalid username or password",
-      });
-    }
-
-    const token = jwt.sign(
-      { id: franchise._id, role: "franchise" },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    );
-
-    res.json({
-      success: true,
-      token,
-      franchise: {
-        id: franchise._id,
-        instituteName: franchise.instituteName,
-      },
-    });
-  } catch (error) {
-    console.error("Franchise login error:", error);
-    res.status(500).json({
-      message: "Login failed",
-    });
-  }
-};
-
 /* ================= FRANCHISE LOGIN ================= */
 
 exports.franchiseLogin = async (req, res) => {

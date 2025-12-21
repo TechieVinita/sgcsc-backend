@@ -54,24 +54,20 @@ const franchiseSchema = new mongoose.Schema(
       type: Date,
     },
 
-
-
     // 🔑 LOGIN
-
     username: {
-  type: String,
-  required: true,
-  unique: true,
-  trim: true,
-  lowercase: true,
-      index: true,
-      sparse: true, // IMPORTANT: allows old docs without username
-},
-
-
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    lowercase: true,
+    index: true,  
+    sparse: true, // IMPORTANT: allows old docs without username
+  },
     passwordHash: String,
   },
   { timestamps: true }
 );
 
 module.exports = mongoose.model('Franchise', franchiseSchema);
+

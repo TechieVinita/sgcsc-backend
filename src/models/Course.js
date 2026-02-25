@@ -18,6 +18,13 @@ const courseSchema = new mongoose.Schema(
       default: 'long',
     },
     active: { type: Boolean, default: true },
+    subjects: [
+  {
+    name: { type: String, required: true },
+    hasPractical: { type: Boolean, default: false }
+  }
+]
+
   },
   {
     timestamps: true,

@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
 
+
+
+
 const franchiseSchema = new mongoose.Schema(
   {
     instituteId: {
@@ -37,6 +40,12 @@ const franchiseSchema = new mongoose.Schema(
     contact: String,
     email: String,
 
+    balance: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     ownerQualification: String,
     hasReception: { type: Boolean, default: false },
     hasStaffRoom: { type: Boolean, default: false },
@@ -54,10 +63,13 @@ const franchiseSchema = new mongoose.Schema(
       type: Date,
     },
 
+
+
+
     // 🔑 LOGIN
     username: {
     type: String,
-    required: true,
+    // required: true,
     unique: true,
     trim: true,
     lowercase: true,

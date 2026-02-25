@@ -4,7 +4,6 @@ const router = express.Router();
 const verifyAdmin = require("../middleware/authMiddleware");
 const { uploadImage } = require("../middleware/upload");
 
-
 const {
   createStudent,
   getStudents,
@@ -13,6 +12,7 @@ const {
   deleteStudent,
   getRecentStudents,
   getCertifiedStudents,
+  getStudentRollNos, // ✅ add this
 } = require("../controllers/studentController");
 
 /* ================= PUBLIC HOME ROUTES ================= */
@@ -21,15 +21,11 @@ router.get("/certified-home", getCertifiedStudents);
 
 /* ================= PUBLIC ================= */
 router.get("/", getStudents);
+router.get("/rollnos", getStudentRollNos); // ✅ fixed
 router.get("/:id", getStudent);
 
 /* ================= ADMIN ================= */
-router.post(
-  "/",
-  verifyAdmin,
-  uploadImage.single("photo"), // Cloudinary
-  createStudent
-);
+router.post("/", verifyAdmin, uploadImage.single("photo"), createStudent);
 
 router.put(
   "/:id",

@@ -28,6 +28,7 @@ exports.createStudent = async (req, res) => {
       courseName,
       sessionStart,
       sessionEnd,
+      rollNumber
     } = body;
 
     if (!name || !mobile || !centerName) {
@@ -36,6 +37,22 @@ exports.createStudent = async (req, res) => {
         message: "name, mobile and centerName are required",
       });
     }
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required",
+      });
+    }
+
+    if (!rollNumber || !rollNumber.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Roll number is required",
+      });
+    }
+
+
 
     const student = await Student.create({
       name: name.trim(),
@@ -65,17 +82,38 @@ exports.createStudent = async (req, res) => {
       joinDate: sessionStart || new Date(),
 
       username: username || "",
-      password: password || "",
+      password: password,
 
       // 🔥 Cloudinary URL
       photo: req.file?.path || "",
+      rollNumber: rollNumber.trim(),
+
     });
 
     res.status(201).json({ success: true, data: student });
-  } catch (err) {
-    console.error("createStudent error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+} catch (err) {
+  console.error("createStudent error:", err);
+
+  if (err.code === 11000 && err.keyPattern?.rollNumber) {
+    return res.status(400).json({
+      success: false,
+      message: "Roll number already exists",
+    });
   }
+
+  if (err.name === "ValidationError") {
+    return res.status(400).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
+  res.status(500).json({
+    success: false,
+    message: "Server error",
+  });
+}
+
 };
 
 /* ---------- GET /api/students/recent-home ---------- */
@@ -95,6 +133,21 @@ exports.getRecentStudents = async (req, res) => {
     res.status(500).json({ success: false });
   }
 };
+
+exports.getStudentRollNos = async (req, res) => {
+  try {
+    const students = await Student.find(
+      { rollNumber: { $ne: null } },
+      { rollNumber: 1, name: 1, courseName: 1 }
+    ).sort({ rollNumber: 1 });
+
+    res.json({ success: true, data: students });
+  } catch (err) {
+    console.error("getStudentRollNos error:", err);
+    res.status(500).json({ success: false });
+  }
+};
+
 
 /* ---------- GET /api/students/certified-home ---------- */
 exports.getCertifiedStudents = async (req, res) => {
@@ -147,22 +200,45 @@ exports.getStudent = async (req, res) => {
 /* ---------- PUT /api/students/:id ---------- */
 exports.updateStudent = async (req, res) => {
   try {
+    console.log("---- UPDATE STUDENT HIT ----");
+    console.log("req.headers.content-type:", req.headers["content-type"]);
+    console.log("req.body:", req.body);
+    console.log("req.file:", req.file);
+
     const update = { ...req.body };
 
-    if (req.file?.path) {
-      update.photo = req.file.path; // Cloudinary URL
-    }
-
+    // normalize booleans
     if (update.isCertified !== undefined) {
       update.isCertified =
         update.isCertified === true || update.isCertified === "true";
     }
 
-    const student = await Student.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true, runValidators: true }
-    );
+    if (update.feesPaid !== undefined) {
+      update.feesPaid =
+        update.feesPaid === true || update.feesPaid === "true";
+    }
+
+const student = await Student.findById(req.params.id);
+
+if (!student) {
+  return res.status(404).json({ success: false, message: "Not found" });
+}
+
+// If password is being updated
+if (update.password && update.password.trim() !== "") {
+  student.password = update.password; // This triggers pre('save') hook
+}
+
+// Remove password from update object so it doesn’t overwrite
+delete update.password;
+
+// Update remaining fields
+Object.assign(student, update);
+
+await student.save(); // 🔥 THIS triggers hashing
+
+res.json({ success: true, data: student });
+
 
     if (!student) {
       return res.status(404).json({ success: false, message: "Not found" });
@@ -174,6 +250,7 @@ exports.updateStudent = async (req, res) => {
     res.status(500).json({ success: false });
   }
 };
+
 
 /* ---------- DELETE /api/students/:id ---------- */
 exports.deleteStudent = async (req, res) => {

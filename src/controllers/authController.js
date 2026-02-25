@@ -12,18 +12,22 @@ const EXPIRES = "7d";
 /* ================= ADMIN LOGIN ================= */
 exports.adminLogin = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { username, password } = req.body || {};
 
-    if (!email || !password) {
+
+    if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required",
+        message: "Username and password are required"
+
       });
     }
 
     // ⛔ IMPORTANT: explicitly include password
-    const admin = await AdminUser.findOne({ email: email.toLowerCase().trim() })
-      .select("+password");
+    const admin = await AdminUser.findOne({
+      username: username.toLowerCase().trim(),
+    }).select("+password");
+
 
     if (!admin) {
       return res.status(401).json({
@@ -69,31 +73,33 @@ exports.adminLogin = async (req, res) => {
 /* ================= STUDENT LOGIN ================= */
 exports.studentLogin = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { username, password } = req.body || {};
 
-    if (!email || !password) {
+    if (!username || !password) {
       return res.status(400).json({
         success: false,
-        message: "Email and password are required",
+        message: "Username and password are required",
       });
     }
 
+    // case-insensitive username lookup
     const student = await Student.findOne({
-      email: email.toLowerCase().trim(),
+      username: { $regex: new RegExp(`^${username}$`, "i") },
     });
 
     if (!student || !student.password) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: "Invalid username or password",
       });
     }
 
+    // bcrypt check
     const ok = await student.comparePassword(password);
     if (!ok) {
       return res.status(401).json({
         success: false,
-        message: "Invalid credentials",
+        message: "Invalid username or password",
       });
     }
 
@@ -103,7 +109,7 @@ exports.studentLogin = async (req, res) => {
       { expiresIn: EXPIRES }
     );
 
-    return res.json({
+    res.json({
       success: true,
       data: {
         token,
@@ -112,7 +118,7 @@ exports.studentLogin = async (req, res) => {
     });
   } catch (err) {
     console.error("studentLogin error:", err);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Login failed",
     });

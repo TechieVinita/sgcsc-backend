@@ -16,6 +16,17 @@ const studentSchema = new mongoose.Schema(
     motherName: { type: String, trim: true },
     dob: { type: Date },
 
+    rollNumber: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+      index: true,
+    },
+
+
+
+
     email: { type: String, lowercase: true, trim: true },
 
     mobile: { type: String, trim: true }, // "+91..." from the form

@@ -46,8 +46,6 @@ app.use(compression());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-
-
 /* ===================== Logger ===================== */
 if (NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -76,6 +74,17 @@ app.use(
   })
 );
 
+/* ===================== STATIC FILES (CRITICAL) ===================== */
+/**
+ * Multer saves files into: server/src/uploads
+ * We must expose that directory publicly
+ */
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"))
+);
+
+
 /* ===================== STATIC FILES (IMPORTANT FIX) ===================== */
 /**
  * Multer saves files into:
@@ -86,16 +95,10 @@ app.use(
 app.use("/api/auth", require("./routes/authRoutes"));
 app.use("/api/franchise-auth", require("./routes/franchiseAuthRoutes"));
 app.use("/api/student-auth", require("./routes/studentAuthRoutes"));
-
-
 app.use("/api/members", require("./routes/membersRoutes"));
 app.use("/api/affiliations", require("./routes/affiliations"));
 app.use("/api/franchises", require("./routes/franchiseRoutes"));
-
-
 app.use("/api/franchise-profile", require("./routes/franchiseProfileRoutes"));
-
-
 app.use("/api/students", require("./routes/studentRoutes"));
 app.use("/api/courses", require("./routes/courseRoutes"));
 app.use("/api/subjects", require("./routes/subjectRoutes"));
@@ -105,13 +108,8 @@ app.use("/api/admit-cards", require("./routes/admitCardRoutes"));
 app.use("/api/certificates", require("./routes/certificateRoutes"));
 app.use("/api/study-materials", require("./routes/studyMaterialRoutes"));
 app.use("/api/assignments", require("./routes/assignmentRoutes"));
-
-
 app.use("/api/student-profile", require("./routes/studentProfileRoutes"));
-
 app.use("/api/public/franchise", require("./routes/publicFranchiseRoutes"));
-
-
 app.use("/api/public", require("./routes/publicVerificationRoutes"));
 
 

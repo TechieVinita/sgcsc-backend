@@ -7,9 +7,9 @@ const {
   getFranchises,
   updateFranchise,
   deleteFranchise,
+  checkUsernameUnique,
 } = require("../controllers/franchiseController");
 
-// const { verifyAdmin } = require("../middleware/authMiddleware");
 const franchiseUploads = require("../middleware/franchiseUploads");
 
 // ✅ PUBLIC ROUTE
@@ -19,13 +19,13 @@ router.post(
   createFranchisePublic
 );
 
-// 🔒 ADMIN ROUTES
-// 🔒 ADMIN ROUTES (TEMPORARILY UNPROTECTED)
+// 🔍 USERNAME CHECK (MISSING EARLIER)
+router.get("/check-username", checkUsernameUnique);
+
+// 🔒 ADMIN ROUTES (TEMP)
 router.post("/", franchiseUploads, createFranchise);
 router.get("/", getFranchises);
 router.put("/:id", updateFranchise);
-
 router.delete("/:id", deleteFranchise);
-
 
 module.exports = router;

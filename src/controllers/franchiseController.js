@@ -16,7 +16,8 @@ const hashPassword = async (raw) => {
 };
 
 const fileFrom = (req, field) =>
-  req.files?.[field]?.[0]?.filename || null;
+  req.files?.[field]?.[0]?.path || null;
+
 
 
 
@@ -48,12 +49,14 @@ exports.createFranchisePublic = async (req, res) => {
       contact: req.body.contact,
       email: req.body.email,
 
+      balance: 0, // 🔒 ALWAYS start with 0
+
       // Files
-      aadharFront: req.files?.aadharFront?.[0]?.filename,
-      aadharBack: req.files?.aadharBack?.[0]?.filename,
-      institutePhoto: req.files?.institutePhoto?.[0]?.filename,
-      ownerSign: req.files?.ownerSign?.[0]?.filename,
-      ownerImage: req.files?.ownerImage?.[0]?.filename,
+      aadharFront: req.files?.aadharFront?.[0]?.path,
+      aadharBack: req.files?.aadharBack?.[0]?.path,
+      institutePhoto: req.files?.institutePhoto?.[0]?.path,
+      ownerSign: req.files?.ownerSign?.[0]?.path,
+      ownerImage: req.files?.ownerImage?.[0]?.path,
 
       status: "pending",
     });
@@ -283,6 +286,11 @@ exports.rejectFranchise = async (req, res) => {
 exports.updateFranchise = async (req, res) => {
   try {
     const franchise = await Franchise.findById(req.params.id);
+
+    if (req.body.balance !== undefined) {
+      franchise.balance = Number(req.body.balance);
+    }
+
 
     if (!franchise) {
       return res.status(404).json({

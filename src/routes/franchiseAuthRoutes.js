@@ -53,7 +53,7 @@ router.post("/login", async (req, res) => {
     // 4️⃣ Create token
     const token = jwt.sign(
       {
-        franchiseId: franchise._id,
+        id: franchise._id,
         role: "franchise",
       },
       process.env.JWT_SECRET,

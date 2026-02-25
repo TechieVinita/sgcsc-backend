@@ -1,73 +1,99 @@
-// scripts/createAdmin.js
-// Usage:
-//   node scripts/createAdmin.js --email admin@example.com --password MyP@ssw0rd --name "Admin Name"
+/**
+ * scripts/createAdmin.js
+ *
+ * Usage:
+ *   node scripts/createAdmin.js \
+ *     --username sgcsc \
+ *     --password StrongP@ssw0rd \
+ *     --email admin@sgcsc.co.in \
+ *     --name "SGCSC Admin" \
+ *     --role superadmin
+ */
 
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-const path = require('path');
+require("dotenv").config();
+const mongoose = require("mongoose");
+const minimist = require("minimist");
+const path = require("path");
 
-const argv = require('minimist')(process.argv.slice(2));
+// ---------------- CLI args ----------------
+const argv = minimist(process.argv.slice(2));
 
-const email = argv.email || argv.e || 'admin@example.com';
-const password = argv.password || argv.p || 'admin123';
-const name = argv.name || 'Administrator';
-const role = argv.role || 'admin';
+const username = argv.username || argv.u;
+const password = argv.password || argv.p;
+const email = argv.email || argv.e;
+const name = argv.name || "Administrator";
+const role = argv.role || "admin";
 
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb://localhost:27017/sgcsc';
+// ---------------- Validation ----------------
+if (!username || !password) {
+  console.error("❌ Missing required fields.");
+  console.error("Required: --username --password");
+  process.exit(1);
+}
 
+if (!email) {
+  console.warn("⚠️  No email provided. Using placeholder email.");
+}
+
+// ---------------- Mongo ----------------
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URI;
+
+if (!MONGODB_URI) {
+  console.error("❌ MongoDB URI not found in env");
+  process.exit(1);
+}
+
+// ---------------- Main ----------------
 async function main() {
-  console.log('Connecting to MongoDB:', MONGODB_URI);
-  await mongoose.connect(MONGODB_URI, {});
+  console.log("🔗 Connecting to MongoDB...");
+  await mongoose.connect(MONGODB_URI);
 
-  // Try to load existing AdminUser model
-  let AdminUser = null;
-  try {
-    AdminUser = require(path.join(__dirname, '..', 'src', 'models', 'AdminUser'));
-    console.log('Using existing AdminUser model at src/models/AdminUser.js');
-  } catch (err) {
-    console.warn('AdminUser model not found at src/models/AdminUser.js — will use fallback schema.');
-  }
+  const AdminUser = require(path.join(
+    __dirname,
+    "..",
+    "src",
+    "models",
+    "AdminUser"
+  ));
 
-  const hashed = bcrypt.hashSync(password, 10);
+  // Find by username (source of truth)
+  let admin = await AdminUser.findOne({ username });
 
-  if (AdminUser) {
-    // Upsert by email
-    const existing = await AdminUser.findOne({ email });
-    if (existing) {
-      existing.password = hashed;
-      existing.name = name;
-      existing.role = role;
-      await existing.save();
-      console.log(`Updated existing admin user ${email}`);
-      console.log(existing);
-    } else {
-      const doc = new AdminUser({ email, password: hashed, name, role });
-      await doc.save();
-      console.log(`Created admin user ${email}`);
-      console.log(doc);
-    }
+  if (admin) {
+    console.log(`🔁 Updating existing admin: ${username}`);
+    admin.password = password; // 🔥 hashed by pre-save hook
+    admin.name = name;
+    admin.role = role;
+    if (email) admin.email = email;
   } else {
-    // Fallback direct insertion into adminusers collection
-    const collectionName = 'adminusers';
-    const collection = mongoose.connection.collection(collectionName);
-    const existing = await collection.findOne({ email });
-    if (existing) {
-      await collection.updateOne({ email }, { $set: { password: hashed, name, role } });
-      console.log(`Updated existing admin user in collection ${collectionName}: ${email}`);
-    } else {
-      const now = new Date();
-      const doc = { email, password: hashed, name, role, createdAt: now, updatedAt: now };
-      await collection.insertOne(doc);
-      console.log(`Inserted admin user into collection ${collectionName}: ${email}`);
-    }
+    console.log(`➕ Creating new admin: ${username}`);
+    admin = new AdminUser({
+      username,
+      password, // 🔥 hashed by pre-save hook
+      email: email || `${username}@placeholder.local`,
+      name,
+      role,
+    });
   }
+
+  await admin.save();
+
+  console.log("✅ Admin ready");
+  console.log({
+    id: admin._id.toString(),
+    username: admin.username,
+    email: admin.email,
+    role: admin.role,
+  });
 
   await mongoose.disconnect();
-  console.log('Done. You can now attempt login with the credentials you provided.');
   process.exit(0);
 }
 
-main().catch(err => {
-  console.error('Error creating admin', err);
+// ---------------- Run ----------------
+main().catch((err) => {
+  console.error("❌ Failed to create/update admin:", err);
   process.exit(1);
 });

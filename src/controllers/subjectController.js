@@ -30,8 +30,15 @@ exports.createSubject = async (req, res) => {
   res.status(201).json({ success: true, data: subject });
 };
 
-exports.getSubjects = async (_req, res) => {
-  const subjects = await Subject.find()
+exports.getSubjects = async (req, res) => {
+  const { course } = req.query;
+  
+  const filter = { isActive: true }; // Only active subjects
+  if (course) {
+    filter.course = course;
+  }
+
+  const subjects = await Subject.find(filter)
     .populate('course', 'name title')
     .sort({ createdAt: -1 });
 

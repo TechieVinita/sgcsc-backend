@@ -9,6 +9,7 @@ const {
   getResult,
   updateResult,
   deleteResult,
+  getResultByRoll,
 } = require('../controllers/resultController');
 
 // Base path: /api/results
@@ -16,10 +17,13 @@ const {
 // Create result
 router.post('/', verifyAdmin, addResult);
 
-// List results (optional ?search= query)
+// List results (optional ?search=, ?studentId=, ?courseId= query)
 router.get('/', verifyAdmin, getResults);
 
-// Single result
+// Get result by roll number (public verification)
+router.get('/by-roll/:rollNumber', getResultByRoll);
+
+// Single result by ID
 router.get('/:id', verifyAdmin, getResult);
 
 // Update result

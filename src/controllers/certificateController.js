@@ -10,16 +10,26 @@ function parseDate(dateStr) {
 
 /**
  * POST /api/certificates
- * Body: { enrollmentNumber, issueDate }
+ * Body: { name, fatherName, courseName, sessionFrom, sessionTo, grade, enrollmentNumber, certificateNumber, issueDate }
  */
 exports.createCertificate = async (req, res) => {
   try {
-    const { enrollmentNumber, issueDate } = req.body || {};
+    const { 
+      name, 
+      fatherName, 
+      courseName, 
+      sessionFrom, 
+      sessionTo, 
+      grade, 
+      enrollmentNumber, 
+      certificateNumber, 
+      issueDate 
+    } = req.body || {};
 
-    if (!enrollmentNumber || !issueDate) {
+    if (!name || !fatherName || !courseName || !sessionFrom || !sessionTo || !grade || !enrollmentNumber || !certificateNumber || !issueDate) {
       return res.status(400).json({
         success: false,
-        message: 'enrollmentNumber and issueDate are required',
+        message: 'All fields are required: name, fatherName, courseName, sessionFrom, sessionTo, grade, enrollmentNumber, certificateNumber, issueDate',
       });
     }
 
@@ -31,7 +41,14 @@ exports.createCertificate = async (req, res) => {
     }
 
     const cert = await Certificate.create({
+      name: String(name).trim(),
+      fatherName: String(fatherName).trim(),
+      courseName: String(courseName).trim(),
+      sessionFrom: Number(sessionFrom),
+      sessionTo: Number(sessionTo),
+      grade: String(grade).trim(),
       enrollmentNumber: String(enrollmentNumber).trim(),
+      certificateNumber: String(certificateNumber).trim(),
       issueDate: parsedDate,
     });
 
@@ -46,7 +63,7 @@ exports.createCertificate = async (req, res) => {
 
 /**
  * GET /api/certificates
- * Optional query: search (by enrollmentNumber)
+ * Optional query: search (by enrollmentNumber, certificateNumber, name, courseName)
  */
 exports.getCertificates = async (req, res) => {
   try {
@@ -55,7 +72,12 @@ exports.getCertificates = async (req, res) => {
 
     if (search && search.trim()) {
       const rx = new RegExp(search.trim(), 'i');
-      filter.enrollmentNumber = rx;
+      filter.$or = [
+        { enrollmentNumber: rx },
+        { certificateNumber: rx },
+        { name: rx },
+        { courseName: rx },
+      ];
     }
 
     const certs = await Certificate.find(filter)
@@ -94,17 +116,48 @@ exports.getCertificateById = async (req, res) => {
 
 /**
  * PUT /api/certificates/:id
- * Body: { enrollmentNumber?, issueDate? }
+ * Body: { name?, fatherName?, courseName?, sessionFrom?, sessionTo?, grade?, enrollmentNumber?, certificateNumber?, issueDate? }
  */
 exports.updateCertificate = async (req, res) => {
   try {
     const { id } = req.params;
-    const { enrollmentNumber, issueDate } = req.body || {};
+    const { 
+      name, 
+      fatherName, 
+      courseName, 
+      sessionFrom, 
+      sessionTo, 
+      grade, 
+      enrollmentNumber, 
+      certificateNumber, 
+      issueDate 
+    } = req.body || {};
 
     const update = {};
 
+    if (name != null) {
+      update.name = String(name).trim();
+    }
+    if (fatherName != null) {
+      update.fatherName = String(fatherName).trim();
+    }
+    if (courseName != null) {
+      update.courseName = String(courseName).trim();
+    }
+    if (sessionFrom != null) {
+      update.sessionFrom = Number(sessionFrom);
+    }
+    if (sessionTo != null) {
+      update.sessionTo = Number(sessionTo);
+    }
+    if (grade != null) {
+      update.grade = String(grade).trim();
+    }
     if (enrollmentNumber != null) {
       update.enrollmentNumber = String(enrollmentNumber).trim();
+    }
+    if (certificateNumber != null) {
+      update.certificateNumber = String(certificateNumber).trim();
     }
 
     if (issueDate != null) {

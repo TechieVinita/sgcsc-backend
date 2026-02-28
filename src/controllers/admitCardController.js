@@ -15,26 +15,31 @@ function parseDate(dateStr) {
 
 /**
  * POST /api/admit-cards
- * Body: { enrollmentNumber, rollNumber, courseId?, courseName?, examCenter, examDate, examTime, studentId? }
+ * Body: { rollNumber, studentName, fatherName, motherName, courseName, instituteName, examCenterAddress, examDate, examTime, reportingTime, examDuration, courseId?, studentId? }
  */
 exports.createAdmitCard = async (req, res) => {
   try {
     const {
-      enrollmentNumber,
       rollNumber,
-      courseId,
+      studentName,
+      fatherName,
+      motherName,
       courseName,
-      examCenter,
+      instituteName,
+      examCenterAddress,
       examDate,
       examTime,
+      reportingTime,
+      examDuration,
+      courseId,
       studentId,
     } = req.body || {};
 
-    if (!enrollmentNumber || !rollNumber || !examDate || !examTime) {
+    // Validate required fields
+    if (!rollNumber || !studentName || !fatherName || !motherName || !courseName || !instituteName || !examCenterAddress || !examDate || !examTime || !reportingTime || !examDuration) {
       return res.status(400).json({
         success: false,
-        message:
-          'enrollmentNumber, rollNumber, examDate and examTime are required',
+        message: 'All fields are required: rollNumber, studentName, fatherName, motherName, courseName, instituteName, examCenterAddress, examDate, examTime, reportingTime, examDuration',
       });
     }
 
@@ -56,7 +61,6 @@ exports.createAdmitCard = async (req, res) => {
     }
 
     let courseDoc = null;
-    let finalCourseName = courseName || '';
     if (courseId) {
       courseDoc = await Course.findById(courseId);
       if (!courseDoc) {
@@ -64,20 +68,22 @@ exports.createAdmitCard = async (req, res) => {
           .status(404)
           .json({ success: false, message: 'Course not found' });
       }
-      if (!finalCourseName) {
-        finalCourseName = courseDoc.name || courseDoc.title || '';
-      }
     }
 
     const admitCard = await AdmitCard.create({
-      enrollmentNumber: String(enrollmentNumber).trim(),
       rollNumber: String(rollNumber).trim(),
-      student: studentDoc ? studentDoc._id : null,
-      course: courseDoc ? courseDoc._id : null,
-      courseName: finalCourseName,
-      examCenter: examCenter ? String(examCenter).trim() : '',
+      studentName: String(studentName).trim(),
+      fatherName: String(fatherName).trim(),
+      motherName: String(motherName).trim(),
+      courseName: String(courseName).trim(),
+      instituteName: String(instituteName).trim(),
+      examCenterAddress: String(examCenterAddress).trim(),
       examDate: parsedExamDate,
       examTime: String(examTime).trim(),
+      reportingTime: String(reportingTime).trim(),
+      examDuration: String(examDuration).trim(),
+      student: studentDoc ? studentDoc._id : null,
+      course: courseDoc ? courseDoc._id : null,
     });
 
     return res.status(201).json({ success: true, data: admitCard });
@@ -91,7 +97,7 @@ exports.createAdmitCard = async (req, res) => {
 
 /**
  * GET /api/admit-cards
- * Optional query: search (matches enrollmentNumber, rollNumber, courseName)
+ * Optional query: search (matches rollNumber, studentName, courseName)
  */
 exports.getAdmitCards = async (req, res) => {
   try {
@@ -101,9 +107,10 @@ exports.getAdmitCards = async (req, res) => {
     if (search && search.trim()) {
       const rx = new RegExp(search.trim(), 'i');
       filter.$or = [
-        { enrollmentNumber: rx },
         { rollNumber: rx },
+        { studentName: rx },
         { courseName: rx },
+        { instituteName: rx },
       ];
     }
 
@@ -149,23 +156,33 @@ exports.updateAdmitCard = async (req, res) => {
   try {
     const { id } = req.params;
     const {
-      enrollmentNumber,
       rollNumber,
-      courseId,
+      studentName,
+      fatherName,
+      motherName,
       courseName,
-      examCenter,
+      instituteName,
+      examCenterAddress,
       examDate,
       examTime,
+      reportingTime,
+      examDuration,
+      courseId,
       studentId,
     } = req.body || {};
 
     const update = {};
 
-    if (enrollmentNumber != null)
-      update.enrollmentNumber = String(enrollmentNumber).trim();
     if (rollNumber != null) update.rollNumber = String(rollNumber).trim();
-    if (examCenter != null) update.examCenter = String(examCenter).trim();
+    if (studentName != null) update.studentName = String(studentName).trim();
+    if (fatherName != null) update.fatherName = String(fatherName).trim();
+    if (motherName != null) update.motherName = String(motherName).trim();
+    if (courseName != null) update.courseName = String(courseName).trim();
+    if (instituteName != null) update.instituteName = String(instituteName).trim();
+    if (examCenterAddress != null) update.examCenterAddress = String(examCenterAddress).trim();
     if (examTime != null) update.examTime = String(examTime).trim();
+    if (reportingTime != null) update.reportingTime = String(reportingTime).trim();
+    if (examDuration != null) update.examDuration = String(examDuration).trim();
 
     if (examDate != null) {
       const parsedExamDate = parseDate(examDate);
@@ -191,11 +208,9 @@ exports.updateAdmitCard = async (req, res) => {
       }
     }
 
-    if (courseId != null || courseName != null) {
-      let finalCourseName = courseName || '';
+    if (courseId != null) {
       if (!courseId) {
         update.course = null;
-        if (courseName != null) update.courseName = finalCourseName;
       } else {
         const c = await Course.findById(courseId);
         if (!c) {
@@ -204,10 +219,6 @@ exports.updateAdmitCard = async (req, res) => {
             .json({ success: false, message: 'Course not found' });
         }
         update.course = c._id;
-        if (!finalCourseName) {
-          finalCourseName = c.name || c.title || '';
-        }
-        update.courseName = finalCourseName;
       }
     }
 

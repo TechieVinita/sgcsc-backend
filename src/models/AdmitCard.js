@@ -3,12 +3,56 @@ const mongoose = require('mongoose');
 
 const admitCardSchema = new mongoose.Schema(
   {
-    enrollmentNumber: {
+    rollNumber: {
       type: String,
       required: true,
       trim: true,
     },
-    rollNumber: {
+    studentName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    fatherName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    motherName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    courseName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    instituteName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    examCenterAddress: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    examDate: {
+      type: Date,
+      required: true,
+    },
+    examTime: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    reportingTime: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    examDuration: {
       type: String,
       required: true,
       trim: true,
@@ -19,39 +63,19 @@ const admitCardSchema = new mongoose.Schema(
       ref: 'Student',
       default: null,
     },
-    // Optional reference to Course + courseName string for display
+    // Optional reference to Course
     course: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Course',
       default: null,
     },
-    courseName: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    examCenter: {
-      type: String,
-      trim: true,
-      default: '',
-    },
-    examDate: {
-      type: Date,
-      required: true,
-    },
-    // Keep as plain string (e.g. "10:00 AM – 12:00 PM")
-    examTime: {
-      type: String,
-      required: true,
-      trim: true,
-    },
   },
   { timestamps: true }
 );
 
-// Quick lookup by enrollment / roll
-admitCardSchema.index({ enrollmentNumber: 1 });
+// Quick lookup by roll number and student name
 admitCardSchema.index({ rollNumber: 1 });
+admitCardSchema.index({ studentName: 1 });
 
 admitCardSchema.set('toJSON', {
   transform: (doc, ret) => {

@@ -111,6 +111,7 @@ app.use("/api/assignments", require("./routes/assignmentRoutes"));
 app.use("/api/student-profile", require("./routes/studentProfileRoutes"));
 app.use("/api/public/franchise", require("./routes/publicFranchiseRoutes"));
 app.use("/api/public", require("./routes/publicVerificationRoutes"));
+app.use("/api/settings", require("./routes/settingsRoutes"));
 
 
 /* ===================== Health Check ===================== */

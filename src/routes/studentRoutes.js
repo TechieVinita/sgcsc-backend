@@ -12,7 +12,8 @@ const {
   deleteStudent,
   getRecentStudents,
   getCertifiedStudents,
-  getStudentRollNos, // ✅ add this
+  getStudentRollNos,
+  getStudentByEnrollment,
 } = require("../controllers/studentController");
 
 /* ================= PUBLIC HOME ROUTES ================= */
@@ -21,7 +22,8 @@ router.get("/certified-home", getCertifiedStudents);
 
 /* ================= PUBLIC ================= */
 router.get("/", getStudents);
-router.get("/rollnos", getStudentRollNos); // ✅ fixed
+router.get("/rollnos", getStudentRollNos);
+router.get("/lookup/:enrollmentNumber", getStudentByEnrollment);
 router.get("/:id", getStudent);
 
 /* ================= ADMIN ================= */

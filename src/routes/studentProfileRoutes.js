@@ -31,6 +31,8 @@ router.get("/me", studentAuth, async (req, res) => {
   student.feeAmount = totalFee;
   student.amountPaid = totalPaid;
   student.pendingAmount = totalFee - totalPaid;
+  // Ensure courses array is available for frontend display
+  student.courses = student.courses || [];
 
   res.json({ success: true, data: student });
 });
@@ -85,6 +87,8 @@ router.get("/enrollment", studentAuth, async (req, res) => {
         amountPaid: totalPaid,
         pendingAmount: totalFee - totalPaid,
         paymentDate: student.paymentDate,
+        // All courses for display
+        courses: student.courses || [],
       },
     });
   } catch (err) {

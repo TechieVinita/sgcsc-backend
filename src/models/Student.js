@@ -24,6 +24,13 @@ const studentSchema = new mongoose.Schema(
       index: true,
     },
 
+    // Enrollment number (can be same as rollNumber or different)
+    enrollmentNo: {
+      type: String,
+      trim: true,
+      index: true,
+    },
+
 
 
 
@@ -42,7 +49,7 @@ const studentSchema = new mongoose.Schema(
     username: { type: String, trim: true },
     password: { type: String }, // hashed below
 
-    // Course info
+    // Course info (single course - deprecated, use courses array)
     course: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Course',
@@ -50,12 +57,40 @@ const studentSchema = new mongoose.Schema(
     },
     courseName: { type: String, trim: true },
 
+    // Multiple courses support
+    courses: [{
+      course: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Course',
+      },
+      courseName: { type: String, trim: true },
+      feeAmount: { type: Number, default: 0 },
+      amountPaid: { type: Number, default: 0 },
+      paymentDate: { type: Date },
+      feesPaid: { type: Boolean, default: false },
+      sessionStart: { type: Date },
+      sessionEnd: { type: Date },
+    }],
+
     // Photo: we store either a full URL or a /uploads/xxx filename
     photo: { type: String, trim: true },
 
     // Session
     sessionStart: { type: Date },
     sessionEnd: { type: Date },
+
+    // Fee details
+    feeAmount: {
+      type: Number,
+      default: 0,
+    },
+    amountPaid: {
+      type: Number,
+      default: 0,
+    },
+    paymentDate: {
+      type: Date,
+    },
 
     // --- Legacy / optional fields kept for compatibility ---
     semester: { type: Number, default: 1 },

@@ -7,10 +7,19 @@ exports.verifyEnrollment = async (req, res) => {
   try {
     const { enrollmentNo, dob } = req.body;
 
-    const student = await Student.findOne({
+    // First try to find by enrollmentNo, then fallback to rollNumber
+    let student = await Student.findOne({
       enrollmentNo,
       dob: new Date(dob),
     }).select("-password");
+
+    // If not found, try with rollNumber
+    if (!student) {
+      student = await Student.findOne({
+        rollNumber: enrollmentNo,
+        dob: new Date(dob),
+      }).select("-password");
+    }
 
     if (!student) {
       return res.status(404).json({ success: false });
@@ -20,12 +29,15 @@ exports.verifyEnrollment = async (req, res) => {
       success: true,
       data: {
         name: student.name,
-        course: student.course,
-        session: student.session,
-        status: student.status,
+        course: student.courseName,
+        session: student.sessionStart && student.sessionEnd 
+          ? `${new Date(student.sessionStart).getFullYear()} - ${new Date(student.sessionEnd).getFullYear()}`
+          : '-',
+        status: student.isCertified ? 'Certified' : 'Enrolled',
       },
     });
   } catch (err) {
+    console.error("Enrollment verification error:", err);
     res.status(500).json({ success: false });
   }
 };

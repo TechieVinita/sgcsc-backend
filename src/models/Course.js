@@ -12,6 +12,7 @@ const courseSchema = new mongoose.Schema(
     //     '/mnt/data/58e83842-f724-41ef-b678-0d3ad1e30ed8.png', // placeholder / filename
     // },
     // price: { type: Number, default: 0, min: 0 },
+    feeAmount: { type: Number, default: 0, min: 0 },
     type: {
       type: String,
       enum: ['long', 'short', 'certificate'],

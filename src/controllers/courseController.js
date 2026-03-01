@@ -20,6 +20,7 @@ exports.addCourse = async (req, res, next) => {
       description,
       duration,
       type,
+      feeAmount,
       price,
       active,
       isActive
@@ -41,7 +42,7 @@ exports.addCourse = async (req, res, next) => {
       duration: duration || '',
       image,
       type: type || 'long',
-      price: toNumberOrUndefined(price) ?? 0,
+      feeAmount: Number(feeAmount) || Number(price) || 0,
       active:
         active !== undefined
           ? !!active
@@ -100,6 +101,7 @@ exports.updateCourse = async (req, res, next) => {
       description,
       duration,
       type,
+      feeAmount,
       price,
       active,
       isActive,
@@ -123,8 +125,12 @@ exports.updateCourse = async (req, res, next) => {
     if (duration !== undefined) update.duration = duration;
     if (type !== undefined) update.type = type;
 
+    const numFeeAmount = toNumberOrUndefined(feeAmount);
+    if (numFeeAmount !== undefined) update.feeAmount = numFeeAmount;
+    
+    // Also support price for backwards compatibility
     const numPrice = toNumberOrUndefined(price);
-    if (numPrice !== undefined) update.price = numPrice;
+    if (numPrice !== undefined) update.feeAmount = numPrice;
 
     if (active !== undefined || isActive !== undefined) {
       update.active =

@@ -28,7 +28,10 @@ exports.createStudent = async (req, res) => {
       courseName,
       sessionStart,
       sessionEnd,
-      rollNumber
+      rollNumber,
+      feeAmount,
+      amountPaid,
+      courses
     } = body;
 
     if (!name || !mobile || !centerName) {
@@ -88,6 +91,11 @@ exports.createStudent = async (req, res) => {
       photo: req.file?.path || "",
       rollNumber: rollNumber.trim(),
 
+      feeAmount: Number(feeAmount) || 0,
+      amountPaid: Number(amountPaid) || 0,
+      
+      // Multiple courses
+      courses: courses || [],
     });
 
     res.status(201).json({ success: true, data: student });
@@ -218,36 +226,60 @@ exports.updateStudent = async (req, res) => {
         update.feesPaid === true || update.feesPaid === "true";
     }
 
-const student = await Student.findById(req.params.id);
+    // Parse courses array if it's a JSON string
+    if (update.courses && typeof update.courses === 'string') {
+      try {
+        update.courses = JSON.parse(update.courses);
+      } catch (e) {
+        console.error('Error parsing courses:', e);
+        update.courses = [];
+      }
+    }
 
-if (!student) {
-  return res.status(404).json({ success: false, message: "Not found" });
-}
+    // Ensure courses array items have proper data types
+    if (update.courses && Array.isArray(update.courses)) {
+      update.courses = update.courses.map(course => ({
+        course: course.course || course.courseId || null,
+        courseName: course.courseName || "",
+        feeAmount: Number(course.feeAmount) || 0,
+        amountPaid: Number(course.amountPaid) || 0,
+        feesPaid: course.feesPaid === true || course.feesPaid === "true",
+        sessionStart: course.sessionStart || null,
+        sessionEnd: course.sessionEnd || null,
+      }));
+    }
 
-// If password is being updated
-if (update.password && update.password.trim() !== "") {
-  student.password = update.password; // This triggers pre('save') hook
-}
-
-// Remove password from update object so it doesn’t overwrite
-delete update.password;
-
-// Update remaining fields
-Object.assign(student, update);
-
-await student.save(); // 🔥 THIS triggers hashing
-
-res.json({ success: true, data: student });
-
+    const student = await Student.findById(req.params.id);
 
     if (!student) {
       return res.status(404).json({ success: false, message: "Not found" });
     }
 
+    // If password is being updated
+    if (update.password && update.password.trim() !== "") {
+      student.password = update.password; // This triggers pre('save') hook
+    }
+
+    // Remove password from update object so it doesn't overwrite
+    delete update.password;
+
+    // Handle courses array specially - mark it as modified
+    if (update.courses !== undefined) {
+      student.courses = update.courses;
+      student.markModified('courses'); // 🔥 This tells Mongoose to save the array
+      delete update.courses;
+    }
+
+    // Update remaining fields
+    Object.assign(student, update);
+
+    await student.save(); // 🔥 THIS triggers hashing
+
     res.json({ success: true, data: student });
+
   } catch (err) {
     console.error("updateStudent error:", err);
-    res.status(500).json({ success: false });
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 

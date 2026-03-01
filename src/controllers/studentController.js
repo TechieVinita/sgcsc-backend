@@ -94,8 +94,20 @@ exports.createStudent = async (req, res) => {
       feeAmount: Number(feeAmount) || 0,
       amountPaid: Number(amountPaid) || 0,
       
-      // Multiple courses
-      courses: courses || [],
+      // Multiple courses - parse if JSON string
+      courses: (() => {
+        if (!courses) return [];
+        if (typeof courses === 'string') {
+          try {
+            const parsed = JSON.parse(courses);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch (e) {
+            console.error('Error parsing courses:', e);
+            return [];
+          }
+        }
+        return Array.isArray(courses) ? courses : [];
+      })(),
     });
 
     res.status(201).json({ success: true, data: student });

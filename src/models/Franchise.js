@@ -46,6 +46,18 @@ const franchiseSchema = new mongoose.Schema(
       min: 0,
     },
 
+    credits: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    totalCreditsUsed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
     ownerQualification: String,
     hasReception: { type: Boolean, default: false },
     hasStaffRoom: { type: Boolean, default: false },

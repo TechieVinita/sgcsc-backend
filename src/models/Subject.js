@@ -34,6 +34,13 @@ const subjectSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+
+    // Track which franchise created this subject (null = admin created)
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Franchise',
+      default: null
+    },
   },
   { timestamps: true }
 );

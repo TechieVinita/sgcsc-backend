@@ -117,7 +117,21 @@ exports.createStudent = async (req, res) => {
   if (err.code === 11000 && err.keyPattern?.rollNumber) {
     return res.status(400).json({
       success: false,
-      message: "Roll number already exists",
+      message: "Enrollment number already exists",
+    });
+  }
+
+  if (err.code === 11000 && err.keyPattern?.enrollmentNo) {
+    return res.status(400).json({
+      success: false,
+      message: "Enrollment number already exists",
+    });
+  }
+
+  if (err.code === 11000 && err.keyPattern?.username) {
+    return res.status(400).json({
+      success: false,
+      message: "Enrollment number already exists",
     });
   }
 

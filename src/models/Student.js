@@ -24,10 +24,11 @@ const studentSchema = new mongoose.Schema(
       index: true,
     },
 
-    // Enrollment number (can be same as rollNumber or different)
+    // Enrollment number (can be same as rollNumber or different) - UNIQUE across platform
     enrollmentNo: {
       type: String,
       trim: true,
+      unique: true,
       index: true,
     },
 
@@ -46,7 +47,7 @@ const studentSchema = new mongoose.Schema(
     board: { type: String, trim: true },
     passingYear: { type: String, trim: true },
 
-    username: { type: String, trim: true },
+    username: { type: String, trim: true, unique: true },
     password: { type: String }, // hashed below
 
     // Course info (single course - deprecated, use courses array)

@@ -45,22 +45,35 @@ exports.verifyEnrollment = async (req, res) => {
 /* ================= RESULT ================= */
 exports.verifyResult = async (req, res) => {
   try {
-    const { rollNo, dob } = req.body;
+    const { enrollmentNumber, dob } = req.body;
 
-    const result = await Result.findOne({
-      rollNo,
-      dob: new Date(dob),
+    // Try to find by enrollmentNumber first
+    let results = await Result.find({
+      $or: [
+        { enrollmentNumber },
+        { rollNumber: enrollmentNumber }
+      ]
     });
 
-    if (!result) {
-      return res.status(404).json({ success: false });
+    // Filter by dob if provided
+    if (dob && results.length > 0) {
+      const dobDate = new Date(dob);
+      results = results.filter(r => {
+        if (!r.dob) return true; // Keep results without dob
+        return new Date(r.dob).toDateString() === dobDate.toDateString();
+      });
+    }
+
+    if (!results || results.length === 0) {
+      return res.status(404).json({ success: false, message: "Result not found" });
     }
 
     res.json({
       success: true,
-      data: result,
+      data: results, // Return array of results
     });
   } catch (err) {
+    console.error("Result verification error:", err);
     res.status(500).json({ success: false });
   }
 };
@@ -68,22 +81,35 @@ exports.verifyResult = async (req, res) => {
 /* ================= CERTIFICATE ================= */
 exports.verifyCertificate = async (req, res) => {
   try {
-    const { certificateNo, dob } = req.body;
+    const { enrollmentNumber, dob } = req.body;
 
-    const cert = await Certificate.findOne({
-      certificateNo,
-      dob: new Date(dob),
+    // Try to find by enrollmentNumber or certificateNumber
+    let certificates = await Certificate.find({
+      $or: [
+        { enrollmentNumber },
+        { certificateNumber: enrollmentNumber }
+      ]
     });
 
-    if (!cert) {
-      return res.status(404).json({ success: false });
+    // Filter by dob if provided
+    if (dob && certificates.length > 0) {
+      const dobDate = new Date(dob);
+      certificates = certificates.filter(c => {
+        if (!c.dob) return true; // Keep certificates without dob
+        return new Date(c.dob).toDateString() === dobDate.toDateString();
+      });
+    }
+
+    if (!certificates || certificates.length === 0) {
+      return res.status(404).json({ success: false, message: "Certificate not found" });
     }
 
     res.json({
       success: true,
-      data: cert,
+      data: certificates, // Return array of certificates
     });
   } catch (err) {
+    console.error("Certificate verification error:", err);
     res.status(500).json({ success: false });
   }
 };

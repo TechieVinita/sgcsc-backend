@@ -19,6 +19,12 @@ const courseSchema = new mongoose.Schema(
       default: 'long',
     },
     active: { type: Boolean, default: true },
+    // Track which franchise created this course (null/undefined = admin created)
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Franchise',
+      default: null
+    },
     subjects: [
   {
     name: { type: String, required: true },

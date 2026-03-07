@@ -45,6 +45,16 @@ const certificateSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    // Center name to track which franchise created the certificate
+    centerName: {
+      type: String,
+      default: null
+    },
+    // Date of birth for public verification
+    dob: {
+      type: Date,
+      required: false
+    }
   },
   { timestamps: true }
 );

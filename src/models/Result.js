@@ -14,6 +14,15 @@ const resultSchema = new mongoose.Schema(
       required: false,
       index: true 
     },
+    enrollmentNumber: {
+      type: String,
+      required: false,
+      index: true
+    },
+    dob: {
+      type: Date,
+      required: false
+    },
     
     // Course reference
     course: { 
@@ -99,6 +108,11 @@ const resultSchema = new mongoose.Schema(
     examDate: { 
       type: Date 
     },
+    // Center name to track which franchise created the result
+    centerName: {
+      type: String,
+      default: null
+    },
     
     // Remarks
     remarks: { 
@@ -112,5 +126,6 @@ const resultSchema = new mongoose.Schema(
 // Index for faster queries
 resultSchema.index({ student: 1, course: 1 });
 resultSchema.index({ rollNumber: 1, course: 1 });
+resultSchema.index({ enrollmentNumber: 1, dob: 1 });
 
 module.exports = mongoose.model("Result", resultSchema); 

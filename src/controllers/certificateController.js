@@ -23,21 +23,29 @@ exports.createCertificate = async (req, res) => {
       grade, 
       enrollmentNumber, 
       certificateNumber, 
-      issueDate 
+      issueDate,
+      renewalDate 
     } = req.body || {};
 
-    if (!name || !fatherName || !courseName || !sessionFrom || !sessionTo || !grade || !enrollmentNumber || !certificateNumber || !issueDate) {
+    if (!name || !fatherName || !courseName || !sessionFrom || !sessionTo || !grade || !enrollmentNumber || !certificateNumber || !issueDate || !renewalDate) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: name, fatherName, courseName, sessionFrom, sessionTo, grade, enrollmentNumber, certificateNumber, issueDate',
+        message: 'All fields are required: name, fatherName, courseName, sessionFrom, sessionTo, grade, enrollmentNumber, certificateNumber, issueDate, renewalDate',
       });
     }
 
-    const parsedDate = parseDate(issueDate);
-    if (!parsedDate) {
+    const parsedIssueDate = parseDate(issueDate);
+    if (!parsedIssueDate) {
       return res
         .status(400)
         .json({ success: false, message: 'Invalid issueDate format' });
+    }
+
+    const parsedRenewalDate = parseDate(renewalDate);
+    if (!parsedRenewalDate) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid renewalDate format' });
     }
 
     const cert = await Certificate.create({
@@ -49,7 +57,8 @@ exports.createCertificate = async (req, res) => {
       grade: String(grade).trim(),
       enrollmentNumber: String(enrollmentNumber).trim(),
       certificateNumber: String(certificateNumber).trim(),
-      issueDate: parsedDate,
+      issueDate: parsedIssueDate,
+      renewalDate: parsedRenewalDate,
     });
 
     return res.status(201).json({ success: true, data: cert });
@@ -130,7 +139,8 @@ exports.updateCertificate = async (req, res) => {
       grade, 
       enrollmentNumber, 
       certificateNumber, 
-      issueDate 
+      issueDate,
+      renewalDate 
     } = req.body || {};
 
     const update = {};
@@ -168,6 +178,16 @@ exports.updateCertificate = async (req, res) => {
           .json({ success: false, message: 'Invalid issueDate format' });
       }
       update.issueDate = parsedDate;
+    }
+
+    if (renewalDate != null) {
+      const parsedDate = parseDate(renewalDate);
+      if (!parsedDate) {
+        return res
+          .status(400)
+          .json({ success: false, message: 'Invalid renewalDate format' });
+      }
+      update.renewalDate = parsedDate;
     }
 
     const cert = await Certificate.findByIdAndUpdate(id, update, {

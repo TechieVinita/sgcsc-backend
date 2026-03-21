@@ -45,6 +45,10 @@ const certificateSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    renewalDate: {
+      type: Date,
+      required: true,
+    },
     // Center name to track which franchise created the certificate
     centerName: {
       type: String,

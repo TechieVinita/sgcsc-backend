@@ -17,5 +17,4 @@ router.post("/student-login", studentLogin);
 /* ================= FRANCHISE LOGIN ================= */
 router.post("/franchise-login", franchiseLogin);
 
-
 module.exports = router;

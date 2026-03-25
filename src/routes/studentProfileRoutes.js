@@ -3,6 +3,7 @@ const router = express.Router();
 const Student = require("../models/Student");
 const Result = require("../models/Result");
 const Certificate = require("../models/Certificate");
+const AdmitCard = require("../models/AdmitCard");
 const studentAuth = require("../middleware/studentAuth");
 
 router.get("/me", studentAuth, async (req, res) => {
@@ -159,6 +160,60 @@ router.get("/certificate", studentAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("Certificate fetch error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+/* ================= STUDENT ADMIT CARD ================= */
+router.get("/admit-card", studentAuth, async (req, res) => {
+  try {
+    const student = await Student.findById(req.studentId).lean();
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    // Find admit card by student name (most reliable match)
+    // First try to find by student ID reference if available
+    let admitCard = await AdmitCard.findOne({ student: student._id }).lean();
+    
+    // If not found by reference, try by student name
+    if (!admitCard) {
+      admitCard = await AdmitCard.findOne({ studentName: student.name }).lean();
+    }
+
+    // If still not found, try to get student photo from any admit card with matching name
+    if (!admitCard) {
+      admitCard = await AdmitCard.findOne({ studentName: { $regex: new RegExp(student.name, 'i') } }).lean();
+    }
+
+    if (!admitCard) {
+      return res.status(404).json({ success: false, message: "No admit card found" });
+    }
+
+    // Format the admit card data for the frontend
+    const formattedCard = {
+      rollNumber: admitCard.rollNumber,
+      name: admitCard.studentName,
+      fatherName: admitCard.fatherName,
+      motherName: admitCard.motherName,
+      course: admitCard.courseName,
+      institute: admitCard.instituteName,
+      center: admitCard.examCenterAddress,
+      examDate: admitCard.examDate ? new Date(admitCard.examDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
+      examTime: admitCard.examTime,
+      reportingTime: admitCard.reportingTime,
+      examDuration: admitCard.examDuration,
+      // Include student photo from the student model
+      photo: student.photo || null,
+    };
+
+    res.json({
+      success: true,
+      data: formattedCard,
+    });
+  } catch (err) {
+    console.error("Admit card fetch error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });

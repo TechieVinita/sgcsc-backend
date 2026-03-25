@@ -24,13 +24,16 @@ exports.createCertificate = async (req, res) => {
       enrollmentNumber, 
       certificateNumber, 
       issueDate,
-      renewalDate 
+      courseDuration,
+      coursePeriodFrom,
+      coursePeriodTo,
+      certificateImage
     } = req.body || {};
 
-    if (!name || !fatherName || !courseName || !sessionFrom || !sessionTo || !grade || !enrollmentNumber || !certificateNumber || !issueDate || !renewalDate) {
+    if (!name || !fatherName || !courseName || !sessionFrom || !sessionTo || !grade || !enrollmentNumber || !certificateNumber || !issueDate) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: name, fatherName, courseName, sessionFrom, sessionTo, grade, enrollmentNumber, certificateNumber, issueDate, renewalDate',
+        message: 'All fields are required: name, fatherName, courseName, sessionFrom, sessionTo, grade, enrollmentNumber, certificateNumber, issueDate',
       });
     }
 
@@ -41,12 +44,8 @@ exports.createCertificate = async (req, res) => {
         .json({ success: false, message: 'Invalid issueDate format' });
     }
 
-    const parsedRenewalDate = parseDate(renewalDate);
-    if (!parsedRenewalDate) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Invalid renewalDate format' });
-    }
+    const parsedCoursePeriodFrom = parseDate(coursePeriodFrom);
+    const parsedCoursePeriodTo = parseDate(coursePeriodTo);
 
     const cert = await Certificate.create({
       name: String(name).trim(),
@@ -58,7 +57,10 @@ exports.createCertificate = async (req, res) => {
       enrollmentNumber: String(enrollmentNumber).trim(),
       certificateNumber: String(certificateNumber).trim(),
       issueDate: parsedIssueDate,
-      renewalDate: parsedRenewalDate,
+      courseDuration: courseDuration ? String(courseDuration).trim() : null,
+      coursePeriodFrom: parsedCoursePeriodFrom,
+      coursePeriodTo: parsedCoursePeriodTo,
+      certificateImage: certificateImage || null,
     });
 
     return res.status(201).json({ success: true, data: cert });

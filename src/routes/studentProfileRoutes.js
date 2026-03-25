@@ -4,6 +4,7 @@ const Student = require("../models/Student");
 const Result = require("../models/Result");
 const Certificate = require("../models/Certificate");
 const AdmitCard = require("../models/AdmitCard");
+const IDCard = require("../models/IDCard");
 const studentAuth = require("../middleware/studentAuth");
 
 router.get("/me", studentAuth, async (req, res) => {
@@ -214,6 +215,76 @@ router.get("/admit-card", studentAuth, async (req, res) => {
     });
   } catch (err) {
     console.error("Admit card fetch error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+/* ================= STUDENT ID CARD ================= */
+router.get("/id-card", studentAuth, async (req, res) => {
+  try {
+    const student = await Student.findById(req.studentId).lean();
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    // Use enrollmentNo if available, otherwise use rollNumber
+    const enrollmentNo = student.enrollmentNo || student.rollNumber;
+    const studentName = student.name;
+    const studentId = student._id;
+
+    // Find ID card by student reference first, then by enrollment number, then by rollNumber
+    let idCard = await IDCard.findOne({ student: studentId }).lean();
+
+    // If not found by reference, try by enrollment number
+    if (!idCard && enrollmentNo) {
+      idCard = await IDCard.findOne({ enrollmentNo: enrollmentNo }).lean();
+    }
+
+    // Try by rollNumber if enrollmentNo is different
+    if (!idCard && student.rollNumber) {
+      idCard = await IDCard.findOne({ enrollmentNo: student.rollNumber }).lean();
+    }
+
+    // If still not found, try by student name
+    if (!idCard && studentName) {
+      idCard = await IDCard.findOne({ studentName: studentName }).lean();
+    }
+
+    // Last resort: try regex match on student name
+    if (!idCard && studentName) {
+      idCard = await IDCard.findOne({ studentName: { $regex: new RegExp(studentName, 'i') } }).lean();
+    }
+
+    if (!idCard) {
+      return res.status(404).json({ success: false, message: "No ID card found" });
+    }
+
+    // Format the ID card data for the frontend
+    const formattedCard = {
+      studentName: idCard.studentName,
+      fatherName: idCard.fatherName,
+      motherName: idCard.motherName,
+      enrollmentNo: idCard.enrollmentNo,
+      dateOfBirth: idCard.dateOfBirth ? new Date(idCard.dateOfBirth).toLocaleDateString('en-IN') : '',
+      contactNo: idCard.contactNo || '',
+      address: idCard.address || '',
+      mobileNo: idCard.mobileNo || '',
+      centerMobileNo: idCard.centerMobileNo || '',
+      courseName: idCard.courseName || '',
+      centerName: idCard.centerName || '',
+      sessionFrom: idCard.sessionFrom || '',
+      sessionTo: idCard.sessionTo || '',
+      // Include student photo from the student model
+      photo: student.photo || idCard.photo || null,
+    };
+
+    res.json({
+      success: true,
+      data: formattedCard,
+    });
+  } catch (err) {
+    console.error("ID card fetch error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 });

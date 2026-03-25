@@ -45,9 +45,18 @@ const certificateSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
-    renewalDate: {
+    courseDuration: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    coursePeriodFrom: {
       type: Date,
-      required: true,
+      required: false,
+    },
+    coursePeriodTo: {
+      type: Date,
+      required: false,
     },
     // Center name to track which franchise created the certificate
     centerName: {
@@ -57,6 +66,11 @@ const certificateSchema = new mongoose.Schema(
     // Date of birth for public verification
     dob: {
       type: Date,
+      required: false
+    },
+    // Certificate image stored as base64 or URL
+    certificateImage: {
+      type: String,
       required: false
     }
   },

@@ -1,156 +1,161 @@
 const express = require("express");
 const router = express.Router();
-const franchiseAuth = require("../middleware/franchiseAuthMiddleware");
-const Certificate = require("../models/Certificate");
-const Franchise = require("../models/Franchise");
-const Settings = require("../models/Settings");
-const CreditTransaction = require("../models/CreditTransaction");
+const FranchiseCertificate = require("../models/FranchiseCertificate");
 
-// All routes require franchise authentication
-router.use(franchiseAuth);
-
-// Helper function to deduct credits
-async function deductCredits(franchiseId, amount, description) {
-  const franchise = await Franchise.findById(franchiseId);
-  const currentCredits = franchise.credits || 0;
-  
-  if (currentCredits >= amount) {
-    franchise.credits = currentCredits - amount;
-    franchise.totalCreditsUsed = (franchise.totalCreditsUsed || 0) + amount;
-    await franchise.save();
-
-    await CreditTransaction.create({
-      franchise: franchiseId,
-      type: 'deduction',
-      amount: amount,
-      description: description,
-      balanceAfter: franchise.credits,
-    });
-    return true;
-  }
-  return false;
-}
-
-// Get certificates for this franchise's students
-router.get("/", async (req, res) => {
-  try {
-    // Get franchise's institute name
-    const franchise = await Franchise.findById(req.franchise._id);
-    const centerName = franchise.instituteName;
-    
-    // Find certificates for students from this franchise
-    const certificates = await Certificate.find({ centerName }).lean();
-    res.json(certificates);
-  } catch (err) {
-    console.error("Franchise get certificates error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// Get single certificate
-router.get("/:id", async (req, res) => {
-  try {
-    const franchise = await Franchise.findById(req.franchise._id);
-    const centerName = franchise.instituteName;
-    
-    const certificate = await Certificate.findOne({
-      _id: req.params.id,
-      centerName: centerName
-    }).lean();
-    
-    if (!certificate) {
-      return res.status(404).json({ message: "Certificate not found" });
-    }
-    
-    res.json(certificate);
-  } catch (err) {
-    console.error("Franchise get certificate error:", err);
-    res.status(500).json({ message: "Server error" });
-  }
-});
-
-// Create certificate for this franchise - DEDUCT 25 CREDITS
+// Create franchise certificate
 router.post("/", async (req, res) => {
   try {
-    const settings = await Settings.getSettings();
-    const creditPricing = settings.creditPricing || {};
-    const certificateCost = creditPricing.certificate || 25;
+    const { franchiseName, address, applicantName, atcCode, dateOfIssue, dateOfRenewal, certificateImage } = req.body;
 
-    // Check if franchise has enough credits
-    const franchise = await Franchise.findById(req.franchise._id);
-    if ((franchise.credits || 0) < certificateCost) {
-      return res.status(400).json({ 
-        message: `Insufficient credits. You need ${certificateCost} credits to create a certificate.` 
+    if (!franchiseName || !address || !applicantName || !atcCode || !dateOfIssue || !dateOfRenewal) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required: franchiseName, address, applicantName, atcCode, dateOfIssue, dateOfRenewal'
       });
     }
 
-    const certificateData = {
-      ...req.body,
-      centerName: franchise.instituteName,
-    };
+    const franchiseCertificate = new FranchiseCertificate({
+      franchiseName: String(franchiseName).trim(),
+      address: String(address).trim(),
+      applicantName: String(applicantName).trim(),
+      atcCode: String(atcCode).trim(),
+      dateOfIssue: new Date(dateOfIssue),
+      dateOfRenewal: new Date(dateOfRenewal),
+      certificateImage: certificateImage || null,
+    });
 
-    const certificate = new Certificate(certificateData);
-    await certificate.save();
+    await franchiseCertificate.save();
 
-    // Deduct credits
-    await deductCredits(
-      req.franchise._id, 
-      certificateCost, 
-      `Certificate created for: ${certificateData.studentName || certificateData.rollNumber}`
-    );
-
-    res.status(201).json(certificate);
+    res.status(201).json({
+      success: true,
+      message: 'Franchise certificate created successfully',
+      data: franchiseCertificate
+    });
   } catch (err) {
-    console.error("Franchise create certificate error:", err);
-    res.status(500).json({ message: err.message || "Server error" });
+    console.error('Create franchise certificate error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while creating franchise certificate'
+    });
   }
 });
 
-// Update certificate
+// Get all franchise certificates
+router.get("/", async (req, res) => {
+  try {
+    const { search } = req.query;
+
+    let query = {};
+    if (search) {
+      const rx = new RegExp(search, 'i');
+      query = {
+        $or: [
+          { franchiseName: rx },
+          { applicantName: rx },
+          { atcCode: rx }
+        ]
+      };
+    }
+
+    const franchiseCertificates = await FranchiseCertificate.find(query).sort({ createdAt: -1 });
+    res.json({
+      success: true,
+      data: franchiseCertificates
+    });
+  } catch (err) {
+    console.error('Fetch franchise certificates error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching franchise certificates'
+    });
+  }
+});
+
+// Get single franchise certificate
+router.get("/:id", async (req, res) => {
+  try {
+    const franchiseCertificate = await FranchiseCertificate.findById(req.params.id);
+    if (!franchiseCertificate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise certificate not found'
+      });
+    }
+    res.json({
+      success: true,
+      data: franchiseCertificate
+    });
+  } catch (err) {
+    console.error('Fetch franchise certificate error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching franchise certificate'
+    });
+  }
+});
+
+// Update franchise certificate
 router.put("/:id", async (req, res) => {
   try {
-    const franchise = await Franchise.findById(req.franchise._id);
-    const centerName = franchise.instituteName;
-    
-    const certificate = await Certificate.findOneAndUpdate(
-      { 
-        _id: req.params.id,
-        centerName: centerName
-      },
-      req.body,
+    const { franchiseName, address, applicantName, atcCode, dateOfIssue, dateOfRenewal, certificateImage } = req.body;
+
+    const update = {};
+    if (franchiseName != null) update.franchiseName = String(franchiseName).trim();
+    if (address != null) update.address = String(address).trim();
+    if (applicantName != null) update.applicantName = String(applicantName).trim();
+    if (atcCode != null) update.atcCode = String(atcCode).trim();
+    if (dateOfIssue != null) update.dateOfIssue = new Date(dateOfIssue);
+    if (dateOfRenewal != null) update.dateOfRenewal = new Date(dateOfRenewal);
+    if (certificateImage != null) update.certificateImage = certificateImage;
+
+    const franchiseCertificate = await FranchiseCertificate.findByIdAndUpdate(
+      req.params.id,
+      update,
       { new: true }
     );
 
-    if (!certificate) {
-      return res.status(404).json({ message: "Certificate not found" });
+    if (!franchiseCertificate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise certificate not found'
+      });
     }
 
-    res.json(certificate);
+    res.json({
+      success: true,
+      message: 'Franchise certificate updated successfully',
+      data: franchiseCertificate
+    });
   } catch (err) {
-    console.error("Franchise update certificate error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error('Update franchise certificate error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while updating franchise certificate'
+    });
   }
 });
 
-// Delete certificate
+// Delete franchise certificate
 router.delete("/:id", async (req, res) => {
   try {
-    const franchise = await Franchise.findById(req.franchise._id);
-    const centerName = franchise.instituteName;
-    
-    const certificate = await Certificate.findOneAndDelete({
-      _id: req.params.id,
-      centerName: centerName
-    });
-
-    if (!certificate) {
-      return res.status(404).json({ message: "Certificate not found" });
+    const franchiseCertificate = await FranchiseCertificate.findByIdAndDelete(req.params.id);
+    if (!franchiseCertificate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Franchise certificate not found'
+      });
     }
 
-    res.json({ message: "Certificate deleted successfully" });
+    res.json({
+      success: true,
+      message: 'Franchise certificate deleted successfully'
+    });
   } catch (err) {
-    console.error("Franchise delete certificate error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error('Delete franchise certificate error:', err);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while deleting franchise certificate'
+    });
   }
 });
 

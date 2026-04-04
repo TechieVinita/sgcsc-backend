@@ -107,6 +107,8 @@ app.use("/api/gallery", require("./routes/galleryRoutes"));
 app.use("/api/admit-cards", require("./routes/admitCardRoutes"));
 app.use("/api/id-cards", require("./routes/idCardRoutes"));
 app.use("/api/certificates", require("./routes/certificateRoutes"));
+app.use("/api/franchise-certificates", require("./routes/franchiseCertificateRoutes"));
+app.use("/api/typing-certificates", require("./routes/typingCertificateRoutes"));
 app.use("/api/marksheets", require("./routes/marksheetRoutes"));
 app.use("/api/study-materials", require("./routes/studyMaterialRoutes"));
 app.use("/api/assignments", require("./routes/assignmentRoutes"));

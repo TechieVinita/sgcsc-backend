@@ -9,6 +9,8 @@ const {
   deleteCreditTopupQR,
   updateCreditTopupInstructions,
   getCreditSettings,
+  getCertificateTemplateConfig,
+  updateCertificateTemplateConfig,
 } = require("../controllers/settingsController");
 const verifyAdmin = require("../middleware/authMiddleware");
 const { uploadImage } = require("../middleware/upload");
@@ -58,6 +60,17 @@ router.put(
   verifyAdmin,
   verifyAdmin.authorizeRole("superadmin", "admin"),
   updateCreditTopupInstructions
+);
+
+// Public route - get certificate template config
+router.get("/certificate-template", getCertificateTemplateConfig);
+
+// Protected route - update certificate template config (admin only)
+router.put(
+  "/certificate-template",
+  verifyAdmin,
+  verifyAdmin.authorizeRole("superadmin", "admin"),
+  updateCertificateTemplateConfig
 );
 
 module.exports = router;

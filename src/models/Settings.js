@@ -73,6 +73,46 @@ const settingsSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    certificateTemplateConfig: {
+      typingCertificate: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {
+          studentName: { x: 50, y: 40, font: "bold 120px serif", color: "#000000", align: "center" },
+          fatherHusbandName: { x: 30, y: 52, font: "100px serif", color: "#000000", align: "left" },
+          motherName: { x: 70, y: 52, font: "100px serif", color: "#000000", align: "left" },
+          enrollmentNumber: { x: 30, y: 60, font: "100px serif", color: "#000000", align: "left" },
+          computerTyping: { x: 70, y: 60, font: "100px serif", color: "#000000", align: "left" },
+          certificateNo: { x: 50, y: 68, font: "bold 100px serif", color: "#000000", align: "center" },
+          dateOfIssue: { x: 50, y: 76, font: "100px serif", color: "#000000", align: "center" },
+        },
+      },
+      franchiseCertificate: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {
+          studentName: { x: 50, y: 35, font: "bold 100px serif", color: "#000000", align: "center" },
+          fatherName: { x: 50, y: 45, font: "80px serif", color: "#000000", align: "center" },
+          courseName: { x: 50, y: 55, font: "80px serif", color: "#000000", align: "center" },
+          session: { x: 50, y: 63, font: "80px serif", color: "#000000", align: "center" },
+          grade: { x: 50, y: 71, font: "80px serif", color: "#000000", align: "center" },
+          enrollmentNumber: { x: 30, y: 80, font: "60px serif", color: "#000000", align: "left" },
+          certificateNumber: { x: 70, y: 80, font: "60px serif", color: "#000000", align: "left" },
+          issueDate: { x: 50, y: 88, font: "60px serif", color: "#000000", align: "center" },
+        },
+      },
+      marksheet: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {
+          studentName: { x: 50, y: 15, font: "bold 80px serif", color: "#000000", align: "center" },
+          enrollmentNumber: { x: 30, y: 22, font: "60px serif", color: "#000000", align: "left" },
+          fatherName: { x: 70, y: 22, font: "60px serif", color: "#000000", align: "left" },
+          courseName: { x: 50, y: 29, font: "60px serif", color: "#000000", align: "center" },
+          session: { x: 50, y: 35, font: "60px serif", color: "#000000", align: "center" },
+          examRollNo: { x: 30, y: 42, font: "50px serif", color: "#000000", align: "left" },
+          examDate: { x: 70, y: 42, font: "50px serif", color: "#000000", align: "left" },
+          centerName: { x: 50, y: 90, font: "50px serif", color: "#000000", align: "center" },
+        },
+      },
+    },
   },
   { timestamps: true }
 );

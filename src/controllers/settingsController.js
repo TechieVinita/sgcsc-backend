@@ -265,6 +265,95 @@ const getCreditSettings = async (req, res) => {
   }
 };
 
+/**
+ * Get certificate template config (public)
+ * GET /api/settings/certificate-template
+ */
+const getCertificateTemplateConfig = async (req, res) => {
+  try {
+    const settings = await Settings.getSettings();
+
+    res.json({
+      success: true,
+      data: settings.certificateTemplateConfig || {},
+    });
+  } catch (error) {
+    console.error("Error fetching certificate template config:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch certificate template config",
+    });
+  }
+};
+
+/**
+ * Update certificate template config (admin only)
+ * PUT /api/settings/certificate-template
+ */
+const updateCertificateTemplateConfig = async (req, res) => {
+  try {
+    const { templateConfig } = req.body;
+
+    if (!templateConfig || typeof templateConfig !== "object") {
+      return res.status(400).json({
+        success: false,
+        message: "Template config object is required",
+      });
+    }
+
+    const settings = await Settings.getSettings();
+
+    // Validate and merge each template type
+    const validTemplates = ["typingCertificate", "franchiseCertificate", "marksheet"];
+    for (const [templateType, fields] of Object.entries(templateConfig)) {
+      if (!validTemplates.includes(templateType)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid template type: ${templateType}`,
+        });
+      }
+      if (fields && typeof fields === "object") {
+        for (const [fieldName, config] of Object.entries(fields)) {
+          if (config && typeof config === "object") {
+            if (config.x !== undefined && (config.x < 0 || config.x > 100)) {
+              return res.status(400).json({
+                success: false,
+                message: `Invalid x value for ${templateType}.${fieldName}: must be 0-100`,
+              });
+            }
+            if (config.y !== undefined && (config.y < 0 || config.y > 100)) {
+              return res.status(400).json({
+                success: false,
+                message: `Invalid y value for ${templateType}.${fieldName}: must be 0-100`,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // Merge with existing config
+    settings.certificateTemplateConfig = {
+      ...settings.certificateTemplateConfig,
+      ...templateConfig,
+    };
+
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: "Certificate template config updated successfully",
+      data: settings.certificateTemplateConfig,
+    });
+  } catch (error) {
+    console.error("Error updating certificate template config:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update certificate template config",
+    });
+  }
+};
+
 module.exports = {
   getSettings,
   updateSocialLinks,
@@ -273,4 +362,6 @@ module.exports = {
   deleteCreditTopupQR,
   updateCreditTopupInstructions,
   getCreditSettings,
+  getCertificateTemplateConfig,
+  updateCertificateTemplateConfig,
 };

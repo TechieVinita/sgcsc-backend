@@ -37,6 +37,31 @@ const typingCertificateSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    sessionFrom: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    sessionTo: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    grade: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    studyCentre: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    wordsPerMinute: {
+      type: String,
+      required: true,
+      trim: true,
+    },
     // Certificate image stored as base64 or URL
     certificateImage: {
       type: String,

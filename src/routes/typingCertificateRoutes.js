@@ -5,12 +5,12 @@ const TypingCertificate = require("../models/TypingCertificate");
 // Create typing certificate
 router.post("/", async (req, res) => {
   try {
-    const { studentName, fatherHusbandName, motherName, enrollmentNumber, computerTyping, certificateNo, dateOfIssue, certificateImage } = req.body;
+    const { studentName, fatherHusbandName, motherName, enrollmentNumber, computerTyping, certificateNo, dateOfIssue, sessionFrom, sessionTo, grade, studyCentre, wordsPerMinute, certificateImage } = req.body;
 
-    if (!studentName || !fatherHusbandName || !motherName || !enrollmentNumber || !computerTyping || !certificateNo || !dateOfIssue) {
+    if (!studentName || !fatherHusbandName || !motherName || !enrollmentNumber || !computerTyping || !certificateNo || !dateOfIssue || !sessionFrom || !sessionTo || !grade || !studyCentre || !wordsPerMinute) {
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: studentName, fatherHusbandName, motherName, enrollmentNumber, computerTyping, certificateNo, dateOfIssue'
+        message: 'All fields are required: studentName, fatherHusbandName, motherName, enrollmentNumber, computerTyping, certificateNo, dateOfIssue, sessionFrom, sessionTo, grade, studyCentre, wordsPerMinute'
       });
     }
 
@@ -22,6 +22,11 @@ router.post("/", async (req, res) => {
       computerTyping: String(computerTyping).trim(),
       certificateNo: String(certificateNo).trim(),
       dateOfIssue: new Date(dateOfIssue),
+      sessionFrom: String(sessionFrom).trim(),
+      sessionTo: String(sessionTo).trim(),
+      grade: String(grade).trim(),
+      studyCentre: String(studyCentre).trim(),
+      wordsPerMinute: String(wordsPerMinute).trim(),
       certificateImage: certificateImage || null,
     });
 
@@ -98,7 +103,7 @@ router.get("/:id", async (req, res) => {
 // Update typing certificate
 router.put("/:id", async (req, res) => {
   try {
-    const { studentName, fatherHusbandName, motherName, enrollmentNumber, computerTyping, certificateNo, dateOfIssue, certificateImage } = req.body;
+    const { studentName, fatherHusbandName, motherName, enrollmentNumber, computerTyping, certificateNo, dateOfIssue, sessionFrom, sessionTo, grade, studyCentre, wordsPerMinute, certificateImage } = req.body;
 
     const update = {};
     if (studentName != null) update.studentName = String(studentName).trim();
@@ -108,6 +113,11 @@ router.put("/:id", async (req, res) => {
     if (computerTyping != null) update.computerTyping = String(computerTyping).trim();
     if (certificateNo != null) update.certificateNo = String(certificateNo).trim();
     if (dateOfIssue != null) update.dateOfIssue = new Date(dateOfIssue);
+    if (sessionFrom != null) update.sessionFrom = String(sessionFrom).trim();
+    if (sessionTo != null) update.sessionTo = String(sessionTo).trim();
+    if (grade != null) update.grade = String(grade).trim();
+    if (studyCentre != null) update.studyCentre = String(studyCentre).trim();
+    if (wordsPerMinute != null) update.wordsPerMinute = String(wordsPerMinute).trim();
     if (certificateImage != null) update.certificateImage = certificateImage;
 
     const typingCertificate = await TypingCertificate.findByIdAndUpdate(

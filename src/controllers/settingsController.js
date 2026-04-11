@@ -273,9 +273,58 @@ const getCertificateTemplateConfig = async (req, res) => {
   try {
     const settings = await Settings.getSettings();
 
+    // Default configurations for each template type
+    const defaults = {
+      typingCertificate: {
+        studentName: { x: 50, y: 15, font: "bold 80px serif", color: "#000000", align: "center" },
+        fatherHusbandName: { x: 30, y: 22, font: "60px serif", color: "#000000", align: "left" },
+        motherName: { x: 70, y: 22, font: "60px serif", color: "#000000", align: "left" },
+        enrollmentNumber: { x: 50, y: 29, font: "60px serif", color: "#000000", align: "center" },
+        computerTyping: { x: 50, y: 35, font: "60px serif", color: "#000000", align: "center" },
+        certificateNo: { x: 30, y: 42, font: "50px serif", color: "#000000", align: "left" },
+        dateOfIssue: { x: 70, y: 42, font: "50px serif", color: "#000000", align: "left" },
+        sessionFrom: { x: 30, y: 48, font: "50px serif", color: "#000000", align: "left" },
+        sessionTo: { x: 70, y: 48, font: "50px serif", color: "#000000", align: "left" },
+        grade: { x: 50, y: 54, font: "bold 60px serif", color: "#000000", align: "center" },
+        studyCentre: { x: 50, y: 90, font: "50px serif", color: "#000000", align: "center" },
+        wordsPerMinute: { x: 50, y: 60, font: "50px serif", color: "#000000", align: "center" },
+      },
+      franchiseCertificate: {
+        trainingCentreName: { x: 50, y: 20, font: "bold 70px serif", color: "#000000", align: "center" },
+        applicantName: { x: 50, y: 30, font: "60px serif", color: "#000000", align: "center" },
+        atcCode: { x: 50, y: 40, font: "50px serif", color: "#000000", align: "center" },
+        atcCode2: { x: 50, y: 45, font: "50px serif", color: "#000000", align: "center" },
+        dateOfIssue: { x: 30, y: 50, font: "50px serif", color: "#000000", align: "left" },
+        dateOfRenewal: { x: 70, y: 50, font: "50px serif", color: "#000000", align: "left" },
+      },
+      marksheet: {
+        enrollmentNo: { x: 30, y: 15, font: "bold 60px serif", color: "#000000", align: "left" },
+        rollNumber: { x: 73, y: 28.5, font: "bold 60px serif", color: "#000000", align: "left" },
+        studentName: { x: 30, y: 25.5, font: "bold 60px serif", color: "#000000", align: "left" },
+        fatherName: { x: 30, y: 28.4, font: "60px serif", color: "#000000", align: "left" },
+        motherName: { x: 30, y: 31.3, font: "60px serif", color: "#000000", align: "left" },
+        dob: { x: 73, y: 31.2, font: "60px serif", color: "#000000", align: "left" },
+        courseName: { x: 30, y: 37, font: "60px serif", color: "#000000", align: "left" },
+        courseDuration: { x: 73, y: 25.5, font: "60px serif", color: "#000000", align: "left" },
+        coursePeriodFrom: { x: 30, y: 34, font: "60px serif", color: "#000000", align: "left" },
+        coursePeriodTo: { x: 49, y: 34, font: "60px serif", color: "#000000", align: "left" },
+        instituteName: { x: 30, y: 39.8, font: "60px serif", color: "#000000", align: "left" },
+        subjectsStartY: 48,
+        subjectRowHeight: 15,
+      },
+    };
+
+    // Merge existing config with defaults
+    const existingConfig = settings.certificateTemplateConfig || {};
+    const mergedConfig = {
+      typingCertificate: { ...defaults.typingCertificate, ...(existingConfig.typingCertificate || {}) },
+      franchiseCertificate: { ...defaults.franchiseCertificate, ...(existingConfig.franchiseCertificate || {}) },
+      marksheet: { ...defaults.marksheet, ...(existingConfig.marksheet || {}) },
+    };
+
     res.json({
       success: true,
-      data: settings.certificateTemplateConfig || {},
+      data: mergedConfig,
     });
   } catch (error) {
     console.error("Error fetching certificate template config:", error);

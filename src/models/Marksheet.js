@@ -95,6 +95,10 @@ const marksheetSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    dateOfIssue: {
+      type: Date,
+      required: true,
+    },
 
     // Subjects with marks
     subjects: [subjectSchema],

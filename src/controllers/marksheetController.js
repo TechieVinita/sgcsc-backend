@@ -77,11 +77,12 @@ exports.createMarksheet = async (req, res) => {
     const parsedDob = parseDate(dob);
     const parsedPeriodFrom = parseDate(coursePeriodFrom);
     const parsedPeriodTo = parseDate(coursePeriodTo);
+    const parsedDateOfIssue = parseDate(dateOfIssue);
 
-    if (!parsedDob || !parsedPeriodFrom || !parsedPeriodTo) {
+    if (!parsedDob || !parsedPeriodFrom || !parsedPeriodTo || !parsedDateOfIssue) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid date format for dob, coursePeriodFrom, or coursePeriodTo',
+        message: 'Invalid date format for dob, coursePeriodFrom, coursePeriodTo, or dateOfIssue',
       });
     }
 
@@ -144,7 +145,7 @@ exports.createMarksheet = async (req, res) => {
       coursePeriodFrom: parsedPeriodFrom,
       coursePeriodTo: parsedPeriodTo,
       courseDuration: String(courseDuration).trim(),
-      dateOfIssue: parseDate(dateOfIssue),
+      dateOfIssue: parsedDateOfIssue,
       subjects: processedSubjects,
       totalTheoryMarks,
       totalPracticalMarks,

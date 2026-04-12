@@ -190,6 +190,7 @@ exports.getMarksheets = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
 
+    res.set('Cache-Control', 'no-cache');
     return res.json({ success: true, data: marksheets });
   } catch (err) {
     console.error('getMarksheets error:', err);

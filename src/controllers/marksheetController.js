@@ -32,6 +32,8 @@ function calculateGrade(percentage) {
  */
 exports.createMarksheet = async (req, res) => {
   try {
+    console.log('[createMarksheet] Request body:', JSON.stringify(req.body, null, 2));
+    
     const {
       enrollmentNo,
       studentName,
@@ -50,6 +52,12 @@ exports.createMarksheet = async (req, res) => {
       courseId,
     } = req.body || {};
 
+    console.log('[createMarksheet] Parsed fields:', {
+      enrollmentNo, studentName, fatherName, motherName, courseName, 
+      instituteName, rollNumber, dob, coursePeriodFrom, coursePeriodTo, 
+      courseDuration, dateOfIssue, subjects: subjects?.length
+    });
+
     // Validate required fields
     if (
       !enrollmentNo ||
@@ -63,13 +71,15 @@ exports.createMarksheet = async (req, res) => {
       !coursePeriodFrom ||
       !coursePeriodTo ||
       !courseDuration ||
+      !dateOfIssue ||
       !subjects ||
       !Array.isArray(subjects) ||
       subjects.length === 0
     ) {
+      console.log('[createMarksheet] Validation failed - missing fields');
       return res.status(400).json({
         success: false,
-        message: 'All fields are required: enrollmentNo, studentName, fatherName, motherName, courseName, instituteName, rollNumber, dob, coursePeriodFrom, coursePeriodTo, courseDuration, subjects',
+        message: 'All fields are required: enrollmentNo, studentName, fatherName, motherName, courseName, instituteName, rollNumber, dob, coursePeriodFrom, coursePeriodTo, courseDuration, dateOfIssue, subjects',
       });
     }
 
@@ -79,7 +89,13 @@ exports.createMarksheet = async (req, res) => {
     const parsedPeriodTo = parseDate(coursePeriodTo);
     const parsedDateOfIssue = parseDate(dateOfIssue);
 
+    console.log('[createMarksheet] Parsed dates:', {
+      dob: parsedDob, coursePeriodFrom: parsedPeriodFrom, 
+      coursePeriodTo: parsedPeriodTo, dateOfIssue: parsedDateOfIssue
+    });
+
     if (!parsedDob || !parsedPeriodFrom || !parsedPeriodTo || !parsedDateOfIssue) {
+      console.log('[createMarksheet] Date parsing failed');
       return res.status(400).json({
         success: false,
         message: 'Invalid date format for dob, coursePeriodFrom, coursePeriodTo, or dateOfIssue',
@@ -157,12 +173,14 @@ exports.createMarksheet = async (req, res) => {
       course: courseDoc ? courseDoc._id : null,
     });
 
+    console.log('[createMarksheet] Created marksheet:', marksheet._id, marksheet.enrollmentNo);
     return res.status(201).json({ success: true, data: marksheet });
   } catch (err) {
-    console.error('createMarksheet error:', err);
+    console.error('[createMarksheet] Error:', err);
+    console.error('[createMarksheet] Stack:', err.stack);
     return res
       .status(500)
-      .json({ success: false, message: 'Server error while creating marksheet' });
+      .json({ success: false, message: 'Server error while creating marksheet: ' + err.message });
   }
 };
 

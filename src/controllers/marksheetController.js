@@ -44,6 +44,7 @@ exports.createMarksheet = async (req, res) => {
       coursePeriodFrom,
       coursePeriodTo,
       courseDuration,
+      dateOfIssue,
       subjects,
       studentId,
       courseId,
@@ -143,6 +144,7 @@ exports.createMarksheet = async (req, res) => {
       coursePeriodFrom: parsedPeriodFrom,
       coursePeriodTo: parsedPeriodTo,
       courseDuration: String(courseDuration).trim(),
+      dateOfIssue: parseDate(dateOfIssue),
       subjects: processedSubjects,
       totalTheoryMarks,
       totalPracticalMarks,
@@ -237,6 +239,7 @@ exports.updateMarksheet = async (req, res) => {
       coursePeriodFrom,
       coursePeriodTo,
       courseDuration,
+      dateOfIssue,
       subjects,
       studentId,
       courseId,
@@ -252,6 +255,13 @@ exports.updateMarksheet = async (req, res) => {
     if (instituteName != null) update.instituteName = String(instituteName).trim();
     if (rollNumber != null) update.rollNumber = String(rollNumber).trim();
     if (courseDuration != null) update.courseDuration = String(courseDuration).trim();
+    if (dateOfIssue != null) {
+      const parsedDateOfIssue = parseDate(dateOfIssue);
+      if (!parsedDateOfIssue) {
+        return res.status(400).json({ success: false, message: 'Invalid dateOfIssue format' });
+      }
+      update.dateOfIssue = parsedDateOfIssue;
+    }
 
     if (dob != null) {
       const parsedDob = parseDate(dob);

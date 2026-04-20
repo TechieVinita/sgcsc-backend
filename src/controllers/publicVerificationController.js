@@ -5,21 +5,13 @@ const Certificate = require("../models/Certificate");
 /* ================= ENROLLMENT ================= */
 exports.verifyEnrollment = async (req, res) => {
   try {
-    const { enrollmentNo, dob } = req.body;
+    const { rollNumber, dob } = req.body;
 
-    // First try to find by enrollmentNo, then fallback to rollNumber
-    let student = await Student.findOne({
-      enrollmentNo,
+    // Find by rollNumber
+    const student = await Student.findOne({
+      rollNumber,
       dob: new Date(dob),
     }).select("-password");
-
-    // If not found, try with rollNumber
-    if (!student) {
-      student = await Student.findOne({
-        rollNumber: enrollmentNo,
-        dob: new Date(dob),
-      }).select("-password");
-    }
 
     if (!student) {
       return res.status(404).json({ success: false });
@@ -30,7 +22,7 @@ exports.verifyEnrollment = async (req, res) => {
       data: {
         name: student.name,
         course: student.courseName,
-        session: student.sessionStart && student.sessionEnd 
+        session: student.sessionStart && student.sessionEnd
           ? `${new Date(student.sessionStart).getFullYear()} - ${new Date(student.sessionEnd).getFullYear()}`
           : '-',
         status: student.isCertified ? 'Certified' : 'Enrolled',
@@ -45,15 +37,10 @@ exports.verifyEnrollment = async (req, res) => {
 /* ================= RESULT ================= */
 exports.verifyResult = async (req, res) => {
   try {
-    const { enrollmentNumber, dob } = req.body;
+    const { rollNumber, dob } = req.body;
 
-    // Try to find by enrollmentNumber first
-    let results = await Result.find({
-      $or: [
-        { enrollmentNumber },
-        { rollNumber: enrollmentNumber }
-      ]
-    });
+    // Find by rollNumber
+    let results = await Result.find({ rollNumber });
 
     // Filter by dob if provided
     if (dob && results.length > 0) {
@@ -81,24 +68,22 @@ exports.verifyResult = async (req, res) => {
 /* ================= CERTIFICATE ================= */
 exports.verifyCertificate = async (req, res) => {
   try {
-    const { enrollmentNumber, dob } = req.body;
+    const { rollNumber, dob } = req.body;
 
-    // Try to find by enrollmentNumber or certificateNumber
-    let certificates = await Certificate.find({
-      $or: [
-        { enrollmentNumber },
-        { certificateNumber: enrollmentNumber }
-      ]
+    // Find student by rollNumber and dob
+    const student = await Student.findOne({
+      rollNumber,
+      dob: new Date(dob),
     });
 
-    // Filter by dob if provided
-    if (dob && certificates.length > 0) {
-      const dobDate = new Date(dob);
-      certificates = certificates.filter(c => {
-        if (!c.dob) return true; // Keep certificates without dob
-        return new Date(c.dob).toDateString() === dobDate.toDateString();
-      });
+    if (!student) {
+      return res.status(404).json({ success: false, message: "Student not found" });
     }
+
+    // Find certificates by student's enrollmentNumber
+    const certificates = await Certificate.find({
+      enrollmentNumber: student.enrollmentNo || student.rollNumber
+    });
 
     if (!certificates || certificates.length === 0) {
       return res.status(404).json({ success: false, message: "Certificate not found" });

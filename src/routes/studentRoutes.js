@@ -14,6 +14,7 @@ const {
   getCertifiedStudents,
   getStudentRollNos,
   getStudentByEnrollment,
+  getStudentByRoll,
 } = require("../controllers/studentController");
 
 /* ================= PUBLIC HOME ROUTES ================= */
@@ -24,6 +25,7 @@ router.get("/certified-home", getCertifiedStudents);
 router.get("/", getStudents);
 router.get("/rollnos", getStudentRollNos);
 router.get("/lookup/:enrollmentNumber", getStudentByEnrollment);
+router.get("/lookup-roll/:rollNumber", getStudentByRoll);
 router.get("/:id", getStudent);
 
 /* ================= ADMIN ================= */

@@ -235,7 +235,7 @@ exports.getStudent = async (req, res) => {
 exports.getStudentByEnrollment = async (req, res) => {
   try {
     const { enrollmentNumber } = req.params;
-    
+
     // Search by enrollmentNo or rollNumber
     const student = await Student.findOne({
       $or: [
@@ -243,17 +243,39 @@ exports.getStudentByEnrollment = async (req, res) => {
         { rollNumber: enrollmentNumber }
       ]
     }).lean();
-    
+
     if (!student) {
       return res.status(404).json({
         success: false,
         message: "Student not found"
       });
     }
-    
+
     res.json({ success: true, data: student });
   } catch (err) {
     console.error("getStudentByEnrollment error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/* ---------- GET /api/students/lookup-roll/:rollNumber ---------- */
+exports.getStudentByRoll = async (req, res) => {
+  try {
+    const { rollNumber } = req.params;
+
+    // Search by rollNumber only
+    const student = await Student.findOne({ rollNumber }).lean();
+
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found"
+      });
+    }
+
+    res.json({ success: true, data: student });
+  } catch (err) {
+    console.error("getStudentByRoll error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

@@ -1,6 +1,7 @@
 // server/src/controllers/subjectController.js
 const Subject = require('../models/Subject');
 const Course = require('../models/Course');
+const mongoose = require('mongoose');
 
 exports.createSubject = async (req, res) => {
   const { course, name, maxMarks = 0, minMarks = 0 } = req.body;
@@ -32,10 +33,10 @@ exports.createSubject = async (req, res) => {
 
 exports.getSubjects = async (req, res) => {
   const { course } = req.query;
-  
+
   const filter = { isActive: true }; // Only active subjects
   if (course) {
-    filter.course = course;
+    filter.course = new mongoose.Types.ObjectId(course);
   }
 
   const subjects = await Subject.find(filter)

@@ -9,9 +9,10 @@ exports.verifyEnrollment = async (req, res) => {
     const { rollNumber, dob } = req.body;
 
     // Find by rollNumber
+    const dobDate = parseDob(dob);
     const student = await Student.findOne({
       rollNumber,
-      dob: new Date(dob),
+      dob: dobDate,
     }).select("-password");
 
     if (!student) {
@@ -35,6 +36,14 @@ exports.verifyEnrollment = async (req, res) => {
   }
 };
 
+// Helper function to parse DD-MM-YYYY date string
+const parseDob = (dobStr) => {
+  if (!dobStr) return null;
+  const [day, month, year] = dobStr.split('-');
+  if (!day || !month || !year) return null;
+  return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+};
+
 /* ================= RESULT ================= */
 exports.verifyResult = async (req, res) => {
   try {
@@ -43,13 +52,15 @@ exports.verifyResult = async (req, res) => {
     // Find marksheets by rollNumber (marksheets are the final results)
     let marksheets = await Marksheet.find({ rollNumber });
 
-    // Filter by dob if provided
+    // Filter by dob if provided (handle DD-MM-YYYY input format)
     if (dob && marksheets.length > 0) {
-      const dobDate = new Date(dob);
-      marksheets = marksheets.filter(m => {
-        if (!m.dob) return true; // Keep marksheets without dob
-        return new Date(m.dob).toDateString() === dobDate.toDateString();
-      });
+      const dobDate = parseDob(dob);
+      if (dobDate) {
+        marksheets = marksheets.filter(m => {
+          if (!m.dob) return true; // Keep marksheets without dob
+          return new Date(m.dob).toDateString() === dobDate.toDateString();
+        });
+      }
     }
 
     if (!marksheets || marksheets.length === 0) {
@@ -72,9 +83,10 @@ exports.verifyCertificate = async (req, res) => {
     const { rollNumber, dob } = req.body;
 
     // Find student by rollNumber and dob
+    const dobDate = parseDob(dob);
     const student = await Student.findOne({
       rollNumber,
-      dob: new Date(dob),
+      dob: dobDate,
     });
 
     if (!student) {

@@ -1,6 +1,7 @@
 const Student = require("../models/Student");
 const Result = require("../models/Result");
 const Certificate = require("../models/Certificate");
+const Marksheet = require("../models/Marksheet");
 
 /* ================= ENROLLMENT ================= */
 exports.verifyEnrollment = async (req, res) => {
@@ -39,25 +40,25 @@ exports.verifyResult = async (req, res) => {
   try {
     const { rollNumber, dob } = req.body;
 
-    // Find by rollNumber
-    let results = await Result.find({ rollNumber });
+    // Find marksheets by rollNumber (marksheets are the final results)
+    let marksheets = await Marksheet.find({ rollNumber });
 
     // Filter by dob if provided
-    if (dob && results.length > 0) {
+    if (dob && marksheets.length > 0) {
       const dobDate = new Date(dob);
-      results = results.filter(r => {
-        if (!r.dob) return true; // Keep results without dob
-        return new Date(r.dob).toDateString() === dobDate.toDateString();
+      marksheets = marksheets.filter(m => {
+        if (!m.dob) return true; // Keep marksheets without dob
+        return new Date(m.dob).toDateString() === dobDate.toDateString();
       });
     }
 
-    if (!results || results.length === 0) {
+    if (!marksheets || marksheets.length === 0) {
       return res.status(404).json({ success: false, message: "Result not found" });
     }
 
     res.json({
       success: true,
-      data: results, // Return array of results
+      data: marksheets, // Return array of marksheets
     });
   } catch (err) {
     console.error("Result verification error:", err);

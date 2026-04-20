@@ -6,13 +6,11 @@ const Marksheet = require("../models/Marksheet");
 /* ================= ENROLLMENT ================= */
 exports.verifyEnrollment = async (req, res) => {
   try {
-    const { rollNumber, dob } = req.body;
+    const { rollNumber } = req.body;
 
-    // Find by rollNumber
-    const dobDate = parseDob(dob);
+    // Find by rollNumber only
     const student = await Student.findOne({
       rollNumber,
-      dob: dobDate,
     }).select("-password");
 
     if (!student) {
@@ -47,21 +45,10 @@ const parseDob = (dobStr) => {
 /* ================= RESULT ================= */
 exports.verifyResult = async (req, res) => {
   try {
-    const { rollNumber, dob } = req.body;
+    const { rollNumber } = req.body;
 
-    // Find marksheets by rollNumber (marksheets are the final results)
-    let marksheets = await Marksheet.find({ rollNumber });
-
-    // Filter by dob if provided (handle DD-MM-YYYY input format)
-    if (dob && marksheets.length > 0) {
-      const dobDate = parseDob(dob);
-      if (dobDate) {
-        marksheets = marksheets.filter(m => {
-          if (!m.dob) return true; // Keep marksheets without dob
-          return new Date(m.dob).toDateString() === dobDate.toDateString();
-        });
-      }
-    }
+    // Find marksheets by rollNumber only (marksheets are the final results)
+    const marksheets = await Marksheet.find({ rollNumber });
 
     if (!marksheets || marksheets.length === 0) {
       return res.status(404).json({ success: false, message: "Result not found" });
@@ -80,13 +67,11 @@ exports.verifyResult = async (req, res) => {
 /* ================= CERTIFICATE ================= */
 exports.verifyCertificate = async (req, res) => {
   try {
-    const { rollNumber, dob } = req.body;
+    const { rollNumber } = req.body;
 
-    // Find student by rollNumber and dob
-    const dobDate = parseDob(dob);
+    // Find student by rollNumber only
     const student = await Student.findOne({
       rollNumber,
-      dob: dobDate,
     });
 
     if (!student) {

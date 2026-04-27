@@ -116,6 +116,7 @@ app.use("/api/student-profile", require("./routes/studentProfileRoutes"));
 app.use("/api/public/franchise", require("./routes/publicFranchiseRoutes"));
 app.use("/api/public", require("./routes/publicVerificationRoutes"));
 app.use("/api/settings", require("./routes/settingsRoutes"));
+app.use("/api/receipts", require("./routes/receiptRoutes"));
 app.use("/api/credits", require("./routes/creditRoutes"));
 app.use("/api/franchise/students", require("./routes/franchiseStudentRoutes"));
 app.use("/api/franchise/courses", require("./routes/franchiseCourseRoutes"));

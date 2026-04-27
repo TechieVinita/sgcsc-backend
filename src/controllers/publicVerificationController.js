@@ -46,9 +46,20 @@ const parseDob = (dobStr) => {
 exports.verifyResult = async (req, res) => {
   try {
     const { rollNumber } = req.body;
+    console.log("Verifying result for rollNumber:", rollNumber);
 
-    // Find marksheets by rollNumber only (marksheets are the final results)
-    const marksheets = await Marksheet.find({ rollNumber });
+    // Find marksheets by rollNumber or enrollmentNo (marksheets are the final results)
+    const marksheets = await Marksheet.find({
+      $or: [
+        { rollNumber: rollNumber },
+        { enrollmentNo: rollNumber }
+      ]
+    });
+    console.log("Found marksheets:", marksheets.length);
+
+    if (marksheets.length > 0) {
+      console.log("First marksheet rollNumber:", marksheets[0].rollNumber, "enrollmentNo:", marksheets[0].enrollmentNo);
+    }
 
     if (!marksheets || marksheets.length === 0) {
       return res.status(404).json({ success: false, message: "Result not found" });

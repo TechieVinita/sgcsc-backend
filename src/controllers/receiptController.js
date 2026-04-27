@@ -5,6 +5,7 @@ const Student = require('../models/Student');
 // Create a new receipt
 exports.createReceipt = async (req, res) => {
   try {
+    console.log('Creating receipt with data:', req.body);
     const {
       studentId,
       courseId,
@@ -22,8 +23,10 @@ exports.createReceipt = async (req, res) => {
       monthlyPayments
     } = req.body;
 
+    console.log('Looking up student:', studentId);
     // Get student details
     const student = await Student.findById(studentId);
+    console.log('Student found:', !!student, student?.name);
     if (!student) {
       return res.status(404).json({ success: false, message: 'Student not found' });
     }
@@ -53,7 +56,7 @@ exports.createReceipt = async (req, res) => {
       whatsappNumber,
       remarks,
       monthlyPayments: monthlyPayments || [],
-      createdBy: req.admin._id
+      createdBy: req.user._id
     });
 
     await receipt.save();
@@ -193,7 +196,7 @@ exports.updateReceipt = async (req, res) => {
     if (remarks !== undefined) receipt.remarks = remarks;
     if (monthlyPayments) receipt.monthlyPayments = monthlyPayments;
 
-    receipt.updatedBy = req.admin._id;
+    receipt.updatedBy = req.user._id;
 
     await receipt.save();
 

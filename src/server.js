@@ -59,6 +59,9 @@ app.use(
       "http://localhost:3001",
       "https://sgcsc-site.vercel.app",
       "https://sgcsc-admin.vercel.app",
+      "https://www.sgcsc.in",
+      "https://sgcsc.in",
+      "https://admin.sgcsc.in",
     ],
     credentials: true,
   })
